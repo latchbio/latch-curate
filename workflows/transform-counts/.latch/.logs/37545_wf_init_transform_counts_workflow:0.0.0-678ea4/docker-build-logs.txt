@@ -1,0 +1,123 @@
+Step 1/15 : from 812206152185.dkr.ecr.us-west-2.amazonaws.com/latch-base:cb01-main
+
+
+ ---> 507607c2b5ea
+
+Step 2/15 : workdir /tmp/docker-build/work/
+
+
+ ---> Using cache
+
+ ---> 3b5eb2da1ce3
+
+Step 3/15 : shell [     "/usr/bin/env", "bash",     "-o", "errexit",     "-o", "pipefail",     "-o", "nounset",     "-o", "verbose",     "-o", "errtrace",     "-O", "inherit_errexit",     "-O", "shift_verbose",     "-c" ]
+
+
+ ---> Using cache
+
+ ---> 2af6bafaff25
+
+Step 4/15 : env TZ='Etc/UTC'
+
+
+ ---> Using cache
+
+ ---> 5b7579be9ce0
+
+Step 5/15 : env LANG='en_US.UTF-8'
+
+
+ ---> Using cache
+
+ ---> 5740eabe5ff3
+
+Step 6/15 : arg DEBIAN_FRONTEND=noninteractive
+
+
+ ---> Using cache
+
+ ---> 6aedbe938026
+
+Step 7/15 : run pip install latch==2.56.4
+
+
+ ---> Using cache
+
+ ---> 26b478f39bd5
+
+Step 8/15 : run mkdir /opt/latch
+
+
+ ---> Using cache
+
+ ---> 3c9e33fe77cf
+
+Step 9/15 : copy latch_curate /opt/latch_curate
+
+
+ ---> 29d4fd2a69cb
+
+Step 10/15 : copy pyproject.toml /opt/latch_curate
+
+
+ ---> 44a11bd3f1a1
+
+Step 11/15 : run cd /opt/latch_curate && pip install -e .
+
+
+ ---> Running in 09451581eef9
+
+[91mcd /opt/latch_curate && pip install -e .
+[0m
+Obtaining file:///opt/latch_curate
+
+  Installing build dependencies: started
+
+  Installing build dependencies: finished with status 'done'
+
+  Checking if build backend supports build_editable: started
+
+  Checking if build backend supports build_editable: finished with status 'done'
+
+  Getting requirements to build editable: started
+
+  Getting requirements to build editable: finished with status 'error'
+
+[91m  error: subprocess-exited-with-error
+  
+  × Getting requirements to build editable did not run successfully.
+  │ exit code: 1
+  ╰─> [16 lines of output]
+      /tmp/pip-build-env-9aq8mzoz/overlay/lib/python3.11/site-packages/setuptools/config/expand.py:126: SetuptoolsWarning: File '/opt/latch_curate/README.md' cannot be found
+        return '\n'.join(
+      error: Multiple top-level packages discovered in a flat-layout: ['qc', 'transform'].
+      
+      To avoid accidental inclusion of unwanted files or directories,
+      setuptools will not proceed with this build.
+      
+      If you are trying to create a single distribution with multiple packages
+      on purpose, you should not rely on automatic discovery.
+      Instead, consider the following options:
+      
+      1. set up custom discovery (`find` directive with `include` or `exclude`)
+      2. use a `src-layout`
+      3. explicitly set `py_modules` or `packages` with a list of names
+      
+      To find more information, look for "package discovery" on setuptools docs.
+      [end of output]
+  
+  note: This error originates from a subprocess, and is likely not a problem with pip.
+[0m
+[91merror: subprocess-exited-with-error
+
+× Getting requirements to build editable did not run successfully.
+│ exit code: 1
+╰─> See above for output.
+
+note: This error originates from a subprocess, and is likely not a problem with pip.
+[0m
+[91m
+[notice] A new release of pip is available: 24.0 -> 25.1.1
+[notice] To update, run: pip install --upgrade pip
+[0m
+The command '/usr/bin/env bash -o errexit -o pipefail -o nounset -o verbose -o errtrace -O inherit_errexit -O shift_verbose -c cd /opt/latch_curate && pip install -e .' returned a non-zero code: 1

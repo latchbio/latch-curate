@@ -1,0 +1,112 @@
+Step 1/16 : from 812206152185.dkr.ecr.us-west-2.amazonaws.com/latch-base:cb01-main
+
+
+ ---> 507607c2b5ea
+
+Step 2/16 : workdir /tmp/docker-build/work/
+
+
+ ---> Using cache
+
+ ---> 3b5eb2da1ce3
+
+Step 3/16 : shell [     "/usr/bin/env", "bash",     "-o", "errexit",     "-o", "pipefail",     "-o", "nounset",     "-o", "verbose",     "-o", "errtrace",     "-O", "inherit_errexit",     "-O", "shift_verbose",     "-c" ]
+
+
+ ---> Using cache
+
+ ---> 2af6bafaff25
+
+Step 4/16 : env TZ='Etc/UTC'
+
+
+ ---> Using cache
+
+ ---> 5b7579be9ce0
+
+Step 5/16 : env LANG='en_US.UTF-8'
+
+
+ ---> Using cache
+
+ ---> 5740eabe5ff3
+
+Step 6/16 : arg DEBIAN_FRONTEND=noninteractive
+
+
+ ---> Using cache
+
+ ---> 6aedbe938026
+
+Step 7/16 : run pip install latch==2.56.4
+
+
+ ---> Using cache
+
+ ---> 26b478f39bd5
+
+Step 8/16 : run mkdir /opt/latch
+
+
+ ---> Using cache
+
+ ---> 3c9e33fe77cf
+
+Step 9/16 : copy latch_curate /opt/latch_curate/latch_curate
+
+
+ ---> Using cache
+
+ ---> 42ed00cdf384
+
+Step 10/16 : copy pyproject.toml /opt/latch_curate
+
+
+ ---> Using cache
+
+ ---> 376393479037
+
+Step 11/16 : workdir /opt/latch_curate
+
+
+ ---> Using cache
+
+ ---> 10d361d57c4b
+
+Step 12/16 : run pip install -e .
+
+
+ ---> Using cache
+
+ ---> 3f1b80ec4052
+
+Step 13/16 : copy wf /root/wf
+
+
+ ---> ad953000fb3b
+
+Step 14/16 : arg tag
+
+
+ ---> Running in 74f7e2414008
+
+ ---> 5479599ea135
+
+Step 15/16 : env FLYTE_INTERNAL_IMAGE $tag
+
+
+ ---> Running in 9a5e599c6357
+
+ ---> 88d99bdb1f74
+
+Step 16/16 : workdir /root
+
+
+ ---> Running in c7ac5b482799
+
+ ---> a896893ae53d
+
+Successfully built a896893ae53d
+
+Successfully tagged 812206152185.dkr.ecr.us-west-2.amazonaws.com/37545_wf_init_transform_counts_workflow:0.0.0-168c13
+

@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "latch-curate"
+version = "0.1.0"
+description = "Tools for curating single cell data"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+  { name = "Kenny Workman", email = "kenny@latch.bio" }
+]
+dependencies = [
+  "scanpy==1.11.1",
+  "scikit-image==0.25.2",
+  "igraph==0.11.8",
+  "harmonypy==0.0.10",
+  "geoparse==2.0.4",
+  "pysradb==2.2.2",
+  "docker==7.1.0",
+  "openai==1.81.0"
+]
+
+[tool.setuptools.packages.find]
+where   = ["."]
+include = ["latch_curate*"]
+exclude = ["sandbox*", "workflows*"]

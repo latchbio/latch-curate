@@ -1,0 +1,91 @@
+Step 1/13 : from 812206152185.dkr.ecr.us-west-2.amazonaws.com/latch-base:cb01-main
+
+
+ ---> 507607c2b5ea
+
+Step 2/13 : workdir /tmp/docker-build/work/
+
+
+ ---> Using cache
+
+ ---> 3b5eb2da1ce3
+
+Step 3/13 : shell [     "/usr/bin/env", "bash",     "-o", "errexit",     "-o", "pipefail",     "-o", "nounset",     "-o", "verbose",     "-o", "errtrace",     "-O", "inherit_errexit",     "-O", "shift_verbose",     "-c" ]
+
+
+ ---> Using cache
+
+ ---> 2af6bafaff25
+
+Step 4/13 : env TZ='Etc/UTC'
+
+
+ ---> Using cache
+
+ ---> 5b7579be9ce0
+
+Step 5/13 : env LANG='en_US.UTF-8'
+
+
+ ---> Using cache
+
+ ---> 5740eabe5ff3
+
+Step 6/13 : arg DEBIAN_FRONTEND=noninteractive
+
+
+ ---> Using cache
+
+ ---> 6aedbe938026
+
+Step 7/13 : run pip install latch==2.56.4
+
+
+ ---> Using cache
+
+ ---> 26b478f39bd5
+
+Step 8/13 : run mkdir /opt/latch
+
+
+ ---> Using cache
+
+ ---> 3c9e33fe77cf
+
+Step 9/13 : run pip install "scanpy==1.11.1" "scikit-image==0.25.2" "igraph==0.11.8"
+
+
+ ---> Using cache
+
+ ---> ea2f608c225e
+
+Step 10/13 : copy . /root/
+
+
+ ---> d45abaac045b
+
+Step 11/13 : arg tag
+
+
+ ---> Running in b5a502116a56
+
+ ---> b3a03cb5e85b
+
+Step 12/13 : env FLYTE_INTERNAL_IMAGE $tag
+
+
+ ---> Running in b233a41b5b5e
+
+ ---> 9f64aafa527f
+
+Step 13/13 : workdir /root
+
+
+ ---> Running in 76d26ed1d348
+
+ ---> 8d589523f0df
+
+Successfully built 8d589523f0df
+
+Successfully tagged 812206152185.dkr.ecr.us-west-2.amazonaws.com/37545_wf_init_transform_counts_workflow:0.0.0-4eea95
+
