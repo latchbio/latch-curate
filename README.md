@@ -1,18 +1,16 @@
 latch-curate
 ===
 
+## Quickstart
 
-## Lifecycle
+Create on directory for each curation project/dataset and run the following
+commands in this project directory.
 
-- download
-- construct
-- qc
-- transform
-- cell typing
-- harmonization
-
-## Utility Workflows
-
-- anndata-seurat conversion
-- anndata linting
-- counts transformation
+```
+latch-curate download run <gse-id>
+latch-curate construct-counts run
+latch-curate qc run
+latch-curate transform run
+latch-curate type-cells run
+latch-curate harmonize-metadata run
+```

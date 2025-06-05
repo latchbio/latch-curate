@@ -61,7 +61,7 @@ def download_gse_metadata(gse_id: str):
         data.append(row_dict)
     return pd.DataFrame(data)
 
-def construct_study_metadata(gse_id: str, metadata_file: Path = Path("study_metadata.txt")):
+def construct_study_metadata(gse_id: str, metadata_file: Path):
 
     srp_df = download_srp_metadata(gse_id)
     gse_df = download_gse_metadata(gse_id)

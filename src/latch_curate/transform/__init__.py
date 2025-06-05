@@ -1,4 +1,3 @@
-import logging
 from pathlib import Path
 from textwrap import dedent
 
@@ -7,18 +6,14 @@ import scanpy as sc
 import scanpy.external as sce
 from anndata import AnnData
 
-from latch_curate.utils import _fig_to_base64
+from latch_curate.utils import _fig_to_base64, write_html_report, write_anndata
 from latch_curate.cell_typing.marker_genes import marker_genes, remove_absent_symbols
-
-logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
-
+from latch_curate.constants import latch_curate_constants as lcc
 
 def build_transform_report_html(
     figs: dict[str, plt.Figure],
-    output_path: Path,
     title: str = "Transform & Integration Report",
-) -> None:
+) -> str:
     imgs = {name: _fig_to_base64(fig) for name, fig in figs.items()}
     body = "\n".join(
         f"<h2>{name}</h2>\n"
@@ -43,31 +38,32 @@ def build_transform_report_html(
         </body>
         </html>"""
     )
-    output_path.write_text(html)
-    logger.info("wrote transform report to %s", output_path.resolve())
+    return html
 
 
 def transform_counts(
     adata: AnnData,
+    workdir: Path,
     use_scrublet: bool = True,
-    output_html_path: Path = Path("transform_report.html"),
 ):
-    if use_scrublet:
-        logger.info("starting scrublet")
-        sc.pp.scrublet(adata)
-        logger.info("finished scrublet")
+    workdir.mkdir(exist_ok=True)
 
-    logger.info("normalizing counts")
+    if use_scrublet:
+        print("starting scrublet")
+        sc.pp.scrublet(adata)
+        print("finished scrublet")
+
+    print("normalizing counts")
     adata.raw = adata.copy()
     sc.pp.normalize_total(adata)
     sc.pp.log1p(adata)
-    logger.info("finished normalization")
+    print("finished normalization")
 
-    logger.info("finding highly variable genes")
+    print("finding highly variable genes")
     sc.pp.highly_variable_genes(adata, n_top_genes=2000, batch_key="latch_sample_id")
     hvg_fig = sc.pl.highly_variable_genes(adata, show=False)
 
-    logger.info("running PCA")
+    print("running PCA")
     sc.tl.pca(adata)
     pca_fig = sc.pl.embedding(
         adata,
@@ -76,9 +72,9 @@ def transform_counts(
         title=["PCA: Sample", "PCA: Total Counts"],
         show=False,
     )
-    logger.info("finished PCA")
+    print("finished PCA")
 
-    logger.info("running Harmony integration")
+    print("running Harmony integration")
     sce.pp.harmony_integrate(adata, "latch_sample_id")
     harmony_pca_fig = sc.pl.embedding(
         adata,
@@ -88,18 +84,18 @@ def transform_counts(
         show=False,
     )
     adata.obsm["X_pca"] = adata.obsm.pop("X_pca_harmony")
-    logger.info("finished Harmony integration")
+    print("finished Harmony integration")
 
-    logger.info("computing neighbors")
+    print("computing neighbors")
     sc.pp.neighbors(adata)
-    logger.info("finished neighbors")
+    print("finished neighbors")
 
-    logger.info("computing UMAP")
+    print("computing UMAP")
     sc.tl.umap(adata)
     umap_fig = sc.pl.umap(adata, color="latch_sample_id", size=2, show=False)
-    logger.info("finished UMAP")
+    print("finished UMAP")
 
-    logger.info("generating Leiden clusterings")
+    print("generating Leiden clusterings")
     leiden_resolutions = [0.50, 1.00, 2.00]
     leiden_figs: dict[str, plt.Figure] = {}
     for res in leiden_resolutions:
@@ -111,9 +107,9 @@ def transform_counts(
             legend_loc="on data",
             show=False,
         )
-    logger.info("finished Leiden clusterings")
+    print("finished Leiden clusterings")
 
-    logger.info("generating marker-gene dotplot")
+    print("generating marker-gene dotplot")
 
     filtered_markers = remove_absent_symbols(adata, marker_genes)
     dp = sc.pl.dotplot(
@@ -125,9 +121,10 @@ def transform_counts(
         show=False,
     )
     dotplot_fig = next(iter(dp.values())).figure
-    logger.info("finished dotplot")
+    print("finished dotplot")
 
-    build_transform_report_html(
+
+    html = build_transform_report_html(
         {
             "Highly Variable Genes": hvg_fig,
             "PCA": pca_fig,
@@ -136,8 +133,8 @@ def transform_counts(
             "Marker Gene DotPlot": dotplot_fig,
             **leiden_figs,
         },
-        output_html_path,
     )
+    write_html_report(html, workdir, lcc.transform_report_name)
+    write_anndata(adata, workdir, lcc.transform_adata_name)
 
-    logger.info("transform pipeline complete")
-    return output_html_path
+    print("transform pipeline complete")

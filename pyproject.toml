@@ -1,13 +1,25 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.sdist]
+include = ["src/**/*.py"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/latch_curate" = "latch_curate"
+
+# note(kenny): Needed to force reinstall from local directory when the
+# pyproject file has not changed. 
+# https://docs.astral.sh/uv/concepts/cache/#dynamic-metadata
+[tool.uv]
+reinstall-package = ["latch_curate"]
 
 [project]
 name = "latch-curate"
 version = "0.1.0"
 description = "Tools for curating single cell data"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 authors = [
   { name = "Kenny Workman", email = "kenny@latch.bio" }
 ]
@@ -19,10 +31,14 @@ dependencies = [
   "geoparse==2.0.4",
   "pysradb==2.2.2",
   "docker==7.1.0",
-  "openai==1.81.0"
+  "openai==1.81.0",
+	"click==8.2.1"
 ]
 
-[tool.setuptools.packages.find]
-where   = ["."]
-include = ["latch_curate*"]
-exclude = ["sandbox*", "workflows*"]
+[project.scripts]
+latch-curate = "latch_curate.main:main"
+
+# [tool.setuptools.packages.find]
+# where   = ["."]
+# include = ["latch_curate*"]
+# exclude = ["sandbox*", "workflows*"]

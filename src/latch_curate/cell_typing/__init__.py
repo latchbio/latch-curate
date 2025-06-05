@@ -1,4 +1,3 @@
-import logging
 import json
 from pathlib import Path
 from textwrap import dedent
@@ -9,13 +8,11 @@ from anndata import AnnData
 
 from latch_curate.cell_typing.marker_genes import marker_genes, remove_absent_symbols
 from latch_curate.cell_typing.vocab import cell_typing_vocab
-from latch_curate.utils import _fig_to_base64, prompt_model
-
-logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+from latch_curate.utils import _fig_to_base64, write_html_report, write_anndata
+from latch_curate.llm_utils import prompt_model
+from latch_curate.constants import latch_curate_constants as lcc
 
 cluster_key = "leiden_res_0.50"
-
 
 def construct_diff_exp_json(adata: AnnData, top_n: int = 20) -> dict:
     sc.tl.rank_genes_groups(adata, groupby=cluster_key, method="wilcoxon", n_genes=50)
@@ -61,7 +58,7 @@ def build_de_prompt(diff_exp: dict, markers: dict, vocab: dict) -> str:
         • Treat clusters with NK-cell markers as T cells.
         • If uncertain, use `unknown/`.
 
-        Return JSON with keys `annotations` and `reasoning`.
+        Return raw JSON (not markdown) with keys `annotations` and `reasoning`.
         `reasoning` must be a **full markdown document with newlines**, like the example below.
 
         <example>
@@ -71,9 +68,11 @@ def build_de_prompt(diff_exp: dict, markers: dict, vocab: dict) -> str:
     )
 
 
-def _build_report_html(ann: dict, reasoning_md: str, dotplot_fig: plt.Figure, umap_fig: plt.Figure, out: Path) -> None:
+def _build_report_html(ann: dict, reasoning_md: str, dotplot_fig: plt.Figure,
+                       umap_cell_type_fig: plt.Figure, umap_leiden_fig: plt.Figure) -> None:
     dotplot_img = _fig_to_base64(dotplot_fig)
-    umap_img = _fig_to_base64(umap_fig)
+    umap_cell_type_img = _fig_to_base64(umap_cell_type_fig)
+    umap_leiden_img = _fig_to_base64(umap_leiden_fig)
     html = dedent(
         f"""<!DOCTYPE html>
         <html><head><meta charset="utf-8"><title>Cell-typing Report</title>
@@ -93,36 +92,40 @@ def _build_report_html(ann: dict, reasoning_md: str, dotplot_fig: plt.Figure, um
           <h2>Marker Dot Plot</h2>
           <img src="data:image/png;base64,{dotplot_img}" alt="DotPlot"/>
 
-          <h2>Marker Gene UMAP</h2>
-          <img src="data:image/png;base64,{umap_img}" alt="DotPlot"/>
+          <h2>UMAPs</h2>
+          <img src="data:image/png;base64,{umap_cell_type_img}" alt="DotPlot"/>
+          <img src="data:image/png;base64,{umap_leiden_img}" alt="DotPlot"/>
         </body></html>"""
     )
-    out.write_text(html)
-    logger.info("wrote cell-typing report to %s", out.resolve())
+    return html
 
 
 def type_cells(
     adata: AnnData,
-    output_html_path: Path = Path("cell_typing_report.html"),
-) -> Path:
-    logger.info("starting differential expression")
+    workdir: Path,
+):
+    workdir.mkdir(exist_ok=True)
+
+    print("starting differential expression")
     de_json = construct_diff_exp_json(adata)
     prompt = build_de_prompt(de_json, marker_genes, cell_typing_vocab)
 
-    logger.info("sending prompt to LLM")
+    print("sending prompt to LLM")
     while True:
         try:
-            resp = json.loads(prompt_model(prompt))
+            message_resp_json, _ = prompt_model([{"role": "user", "content": prompt}])
+            resp = json.loads(message_resp_json)
             annotations: dict = resp["annotations"]
             reasoning: str = resp["reasoning"]
             break
-        except Exception:
-            logger.warning("invalid model response, retrying…")
+        except Exception as e:
+            print(f"dumping error: {e}")
+            print("invalid model response, retrying…")
 
-    logger.info("mapping annotations onto AnnData")
+    print("mapping annotations onto AnnData")
     adata.obs["latch_cell_type_lvl_1"] = adata.obs[cluster_key].astype(str).map(annotations)
 
-    logger.info("creating marker dotplot")
+    print("creating marker dotplot")
     filtered_markers = remove_absent_symbols(adata, marker_genes)
     dp = sc.pl.dotplot(
         adata,
@@ -133,18 +136,30 @@ def type_cells(
         show=False,
     )
     dotplot_fig = next(iter(dp.values())).figure
-    logger.info("finished dotplot")
+    print("finished dotplot")
 
-    logger.info("creating UMAP coloured by cell-type annotations")
-    umap_fig = sc.pl.umap(
+    print("creating UMAP coloured by cell-type annotations")
+    umap_cell_type_fig = sc.pl.umap(
         adata,
         color="latch_cell_type_lvl_1",
         size=2,
         legend_loc="on data",
         show=False,
     )
-    logger.info("finished UMAP")
+    print("finished UMAP")
 
-    _build_report_html(annotations, reasoning, dotplot_fig, umap_fig, output_html_path)
-    logger.info("cell-typing pipeline complete")
-    return output_html_path
+    print("creating UMAP coloured by leiden annotations")
+    umap_leiden_fig = sc.pl.umap(
+        adata,
+        color=cluster_key,
+        size=2,
+        legend_loc="on data",
+        show=False,
+    )
+    print("finished UMAP")
+
+    html = _build_report_html(annotations, reasoning, dotplot_fig, umap_cell_type_fig, umap_leiden_fig)
+
+    write_html_report(html, workdir, lcc.type_cells_report_name)
+    write_anndata(adata, workdir, lcc.type_cells_adata_name)
+    print("cell-typing pipeline complete")

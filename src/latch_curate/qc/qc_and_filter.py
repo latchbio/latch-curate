@@ -1,53 +1,21 @@
 from __future__ import annotations
 
-from typing import TypedDict, Any
+from typing import Any
 from pathlib import Path
 import json
 from textwrap import dedent
-import logging
 
 import pandas as pd
 import scanpy as sc
 from anndata import AnnData
 
-from latch_curate.utils import _fig_to_base64, print_full_df_string, prompt_model
-
-logger = logging.getLogger(__name__)
-if not logger.handlers:
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
-    )
-
-class CountsThresholds(TypedDict):
-    min_genes: int
-    max_total_counts: int | None
-    max_pct_mt: int
+from latch_curate.utils import _fig_to_base64, print_full_df_string, write_anndata, write_html_report
+from latch_curate.llm_utils import prompt_model
+from latch_curate.qc.thresholds import TECH_THRESHOLDS, CountsThresholds
+from latch_curate.constants import latch_curate_constants as lcc
 
 def qcol(metric: str, q: float) -> str:
     return f"{metric}_q{int(q*1000):03d}"
-
-TECH_THRESHOLDS: dict[str, CountsThresholds] = {
-    # droplet‑based
-    "10x Chromium v2/v3 (3′/5′)":     {"min_genes": 200,  "max_total_counts": 25_000, "max_pct_mt": 15},
-    "10x Chromium Flex (3′)":         {"min_genes": 100,  "max_total_counts": 15_000, "max_pct_mt": 20},
-    "Drop‑seq / Seq‑Well":            {"min_genes": 200,  "max_total_counts": 20_000, "max_pct_mt": 20},
-    "inDrops":                        {"min_genes": 200,  "max_total_counts": 15_000, "max_pct_mt": 20},
-    "SPLiT‑seq / sci‑RNA‑seq":        {"min_genes": 100,  "max_total_counts": 10_000, "max_pct_mt": 10},
-
-    # nucleus droplet
-    "10x Single‑nucleus (snRNA‑seq)": {"min_genes": 100,  "max_total_counts": 10_000, "max_pct_mt":  5},
-
-    # full‑length plate
-    "Smart‑seq2":                     {"min_genes": 1_000,"max_total_counts": None,   "max_pct_mt": 30},
-    "Smart‑seq3":                     {"min_genes": 800,  "max_total_counts": None,   "max_pct_mt": 30},
-    "FLASH‑seq":                      {"min_genes": 800,  "max_total_counts": None,   "max_pct_mt": 30},
-    "CEL‑Seq2":                       {"min_genes": 500,  "max_total_counts": 50_000, "max_pct_mt": 25},
-
-    # spatial
-    "10x Visium":                     {"min_genes": 200,  "max_total_counts": 50_000, "max_pct_mt": 20},
-    "Slide‑seq v2":                   {"min_genes": 100,  "max_total_counts": 12_000, "max_pct_mt": 15},
-}
 
 def _violin_plot(adata: AnnData, groupby: str | None = None):
     grid = sc.pl.violin(
@@ -117,7 +85,7 @@ def build_fixed_threshold_prompt(
           • <study_metadata> info
 
         Produce ONE conservative threshold set for {metrics}.
-        Output JSON exactly like {example_output}. No extra text.
+        Output raw JSON (not markdown) exactly like {example_output}. No extra text.
         """
     )
 
@@ -158,15 +126,11 @@ def qc_and_filter(
     adata: AnnData,
     study_metadata_path: Path,
     paper_text_path: Path,
-    output_html_path: Path = Path("qc_report.html"),
-) -> AnnData:
-    """Runs 3‑stage QC:
-       1. Raw
-       2. After fixed hard thresholds
-       3. After adaptive quantile trimming
-    """
+    workdir: Path
+):
+    workdir.mkdir(exist_ok=True)
 
-    logger.debug("Calculating qc metrics: mt‑genes, n_genes_by_counts, total_counts, pct_counts_mt")
+    print("Calculating qc metrics: mt‑genes, n_genes_by_counts, total_counts, pct_counts_mt")
     adata.var["mt"] = adata.var["gene_symbols"].str.startswith("MT-")
     sc.pp.calculate_qc_metrics(adata, qc_vars=["mt"], inplace=True)
 
@@ -195,18 +159,24 @@ def qc_and_filter(
         TECH_THRESHOLDS,
     )
 
-    logger.info("Requesting fixed thresholds from language model")
     while True:
+        print("Requesting fixed thresholds from language model")
+        message_resp_json, _ = prompt_model([{"role": "user", "content": prompt}])
         try:
-            fixed = json.loads(prompt_model(prompt))
+            fixed = json.loads(message_resp_json)
             min_genes = int(fixed["min_genes"])
             max_counts = None if fixed["max_total_counts"] is None else int(fixed["max_total_counts"])
             max_pct_mt = int(fixed["max_pct_mt"])
+            print(f" min_genes >> {min_genes}")
+            print(f" max_counts >> {max_counts}")
+            print(f" max_pct_mt >> {max_pct_mt}")
             break
         except Exception:
-            print("[filter] invalid model response – retrying …")
+            print(f">>> resp: {message_resp_json}")
+            print("Malformed JSON output model. Trying again.")
+            continue
 
-    logger.debug("Applying fixed thresholds")
+    print("Applying fixed thresholds")
     sc.pp.filter_cells(adata, min_genes=min_genes)
     if max_counts is not None:
         sc.pp.filter_cells(adata, max_counts=max_counts)
@@ -214,7 +184,7 @@ def qc_and_filter(
 
     stages.append(_stage_snapshot("After fixed thresholds", adata))
 
-    logger.info("Applying adaptive quantile trimming")
+    print("Applying adaptive quantile trimming")
     adata.obs = adata.obs.join(quantile_table, on="latch_sample_id")
 
     adaptive_mask = (
@@ -231,15 +201,12 @@ def qc_and_filter(
         (adata.obs["pct_counts_mt"]
              <= adata.obs[qcol("pct_counts_mt", 0.95)])
     )
-    logger.debug("Adaptive filter retains %d / %d cells", adaptive_mask.sum(),
-                 adaptive_mask.size)
+    print(f"Adaptive filter retains {adaptive_mask.sum()} / {adaptive_mask.size} cells")
     adata = adata[adaptive_mask, :]
-
     stages.append(_stage_snapshot("After adaptive thresholds", adata))
+    write_anndata(adata, workdir, lcc.qc_adata_name)
 
     html = build_qc_report_html(stages)
-    output_html_path.write_text(html)
+    write_html_report(html, workdir, lcc.qc_report_name)
 
-    print(f"[qc] report written to {output_html_path.resolve()}")
-    logger.info("QC pipeline finished successfully – final cell count: %d", adata.n_obs)
-    return output_html_path
+    print(f"QC pipeline finished successfully – final cell count: {adata.n_obs}")

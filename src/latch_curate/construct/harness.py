@@ -1,7 +1,6 @@
 from pathlib import Path
 import uuid
 import shutil
-from datetime import datetime, UTC
 import re
 
 import numpy as np
@@ -12,17 +11,18 @@ import textwrap
 import os
 
 from latch_curate.construct.prompts import construct_prompt, construct_instructions
-from latch_curate.config import OPENAI_KEY
+from latch_curate.config import user_config
+from latch_curate.constants import latch_curate_constants as lcc
 
 def client_from_env():
-    host = os.environ.get("DOCKER_HOST", "").strip()
-    if host:
-        return docker.DockerClient(base_url=host)
+    host = os.environ.get("DOCKER_HOST")
+    if host is not None:
+        return docker.DockerClient(base_url=host.strip())
 
     socket_paths = [
         "/var/run/docker.sock",  # linux
-        os.path.expanduser("~/.docker/run/docker.sock"),  # Docker Desktop on macOS newer versions
-        os.path.expanduser("~/Library/Containers/com.docker.docker/Data/docker.sock"),  # Docker Desktop on macOS older versions
+        os.path.expanduser(Path().home() / ".docker/run/docker.sock"),  # Docker Desktop on macOS newer versions
+        os.path.expanduser(Path().home() / "Library/Containers/com.docker.docker/Data/docker.sock"),  # Docker Desktop on macOS older versions
     ]
     for p in socket_paths:
         if Path(p).exists():
@@ -79,21 +79,15 @@ def construct_counts(
     data_dir: Path,
     paper_text_path: Path,
     study_metadata_path: Path,
-    run_dir: Path | None = None,
+    workdir: Path,
+    #
     model: str = "o4-mini",
-    max_rounds: int = 3,
-    codex_bin: str = "codex",
-    work_root: Path | None = Path("runs")
+    max_rounds: int = 5,
 ) -> Path:
+    workdir.mkdir(exist_ok=True)
 
-    if not data_dir.exists():
-        raise FileNotFoundError(data_dir)
-
-    work_root = work_root or Path("runs")
-    work_root.mkdir(exist_ok=True)
-    if run_dir is None:
-        run_dir = work_root / uuid.uuid4().hex
-        run_dir.mkdir()
+    run_dir = workdir / uuid.uuid4().hex
+    run_dir.mkdir()
 
     for fname in ("scrna_utils.py", "ensembl_map.json"):
         src = Path(__file__).parent / "vendor" / fname
@@ -118,6 +112,7 @@ def construct_counts(
                 f'codex --model {model} --approval-mode full-auto --quiet "$(cat {prompt_path.name})"'
             )
             container = client.containers.run(
+                # todo(kenny): obv
                 image="foobar",
                 command=[
                     "/usr/bin/bash",
@@ -130,7 +125,7 @@ def construct_counts(
                     str(instructions_path.resolve()): {"bind": "/root/.codex/instructions.md", "mode": "rw"},
                 },
                 environment={
-                        "OPENAI_API_KEY": OPENAI_KEY,
+                        "OPENAI_API_KEY": user_config.openai_api_key,
                         "PATH": os.environ.get("PATH", ""),
                         "PYTHONUNBUFFERED": "1",
                 },
@@ -161,8 +156,7 @@ def construct_counts(
     if not artefact_src.exists():
         raise RuntimeError("output.h5ad missing despite test success.")
 
-    timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
-    artefact_dest = Path.cwd() / f"{data_dir.name}_{timestamp}.h5ad"
+    artefact_dest = workdir / lcc.construct_counts_adata_name
     shutil.move(artefact_src, artefact_dest)
-    print("[done] Artefact at", artefact_dest)
+    print(f"anndata at {artefact_dest}")
     return artefact_dest
