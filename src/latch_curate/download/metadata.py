@@ -1,5 +1,7 @@
 from pathlib import Path
 from textwrap import dedent
+import traceback
+import sys
 
 from pysradb.sraweb import SRAweb
 import GEOparse
@@ -61,10 +63,31 @@ def download_gse_metadata(gse_id: str):
         data.append(row_dict)
     return pd.DataFrame(data)
 
+_original_exit = sys.exit
+def _fake_exit(code=0):
+    raise RuntimeError(f"Intercepted sys.exit({code})")
+
 def construct_study_metadata(gse_id: str, metadata_file: Path):
 
-    srp_df = download_srp_metadata(gse_id)
-    gse_df = download_gse_metadata(gse_id)
+    try:
+        print("Downloading SRP metadata.")
+        sys.exit = _fake_exit
+        srp_df = download_srp_metadata(gse_id)
+    except Exception:
+        print(">>> Exception downloading SRP metadata: ")
+        traceback.print_exc()
+        srp_df = pd.DataFrame()
+        print("Moving on")
+    finally:
+        sys.exit = _original_exit
+    try:
+        print("Downloading GSE metadata.")
+        gse_df = download_gse_metadata(gse_id)
+    except Exception:
+        print(">>> Exception downloading GSE metadata: ")
+        traceback.print_exc()
+        gse_df = pd.DataFrame()
+        print("Moving on")
 
     metadata_text = dedent(f"""
     <srp_metadata>
