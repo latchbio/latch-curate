@@ -256,9 +256,10 @@ def construct_counts(
             " folder by removing unnecessary text, like references, links, etc."
         )
     instructions_path.write_text(instructions)
-    construct_counts_prompt_path.write_text(construct_counts_prompt)
 
     for attempt in range(1, max_rounds + 1):
+
+        construct_counts_prompt_path.write_text(construct_counts_prompt)
         print(f"\n=== Agential count matrix construction attempt {attempt}/{max_rounds} ===")
 
         client = client_from_env()
@@ -313,7 +314,7 @@ def construct_counts(
         except Exception as err:
             print(f'[retry] validation failed: {err}')
             excerpt = indent(str(err), '> ')
-            construct_counts_prompt += f"\n\n# Validation failure: {excerpt}\n"
+            construct_counts_prompt += f"\n\n# Validation failure (attempt {attempt}): {excerpt}\n"
     else:
         html = build_construct_report_html(adata, validation_log)
         write_html_report(html, workdir, lcc.construct_counts_report_name)
