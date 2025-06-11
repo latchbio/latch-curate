@@ -21,7 +21,7 @@ def remove_dir_recursive(p: Path):
             child.unlink()
     p.rmdir()
 
-def download_srp_metadata(gse_id: str):
+def download_srp_metadata(gse_id: str, srp_df_cache: dict[str, pd.DataFrame]):
     try:
         df = sradb.gse_to_srp(
             [gse_id],
@@ -34,10 +34,14 @@ def download_srp_metadata(gse_id: str):
 
     srp_id = df['study_accession'][0]
 
+    if srp_id in srp_df_cache:
+        return srp_df_cache[srp_id]
+
     df = sradb.sra_metadata(
         srp_id,
         detailed=True
     )
+    srp_df_cache[srp_id] = df.copy()
     return df
 
 def download_gse_metadata(gse_id: str):
@@ -67,12 +71,12 @@ _original_exit = sys.exit
 def _fake_exit(code=0):
     raise RuntimeError(f"Intercepted sys.exit({code})")
 
-def construct_study_metadata(gse_id: str, metadata_file: Path):
+def construct_study_metadata(gse_id: str, metadata_file: Path, srp_df_cache: dict[str, pd.DataFrame]):
 
     try:
         print("Downloading SRP metadata.")
         sys.exit = _fake_exit
-        srp_df = download_srp_metadata(gse_id)
+        srp_df = download_srp_metadata(gse_id, srp_df_cache)
     except Exception:
         print(">>> Exception downloading SRP metadata: ")
         traceback.print_exc()

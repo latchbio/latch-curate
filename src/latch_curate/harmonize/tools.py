@@ -130,3 +130,53 @@ def uberon_get_term(uberon_id: str) -> dict:
     'liver'
     """
     return _ols_get_term(uberon_id, ontology="uberon")
+
+def efo_search(term: str, rows: int = 20) -> dict:
+    """Search the **EFO** (Experimental Factor Ontology) by free‑text query.
+
+    EFO covers human traits, diseases, sample characteristics, and experimental
+    variables. These helpers are useful for mapping arbitrary user‑supplied
+    labels to stable EFO identifiers prior to downstream harmonisation.
+
+    Parameters
+    ----------
+    term : str
+        Free‑text query (e.g. ``"cancer"``, ``"type 2 diabetes"``).
+    rows : int, default 20
+        Maximum number of hits to return.
+
+    Returns
+    -------
+    dict
+        Parsed OLS search result. Hits are found under
+        ``result["response"]["docs"]``.
+
+    Example
+    -------
+    >>> hit = efo_search("breast carcinoma")["response"]["docs"][0]
+    >>> hit["curie"], hit["label"]
+    ('EFO:0000305', 'breast carcinoma')
+    """
+    return _ols_search(term, ontology="efo", rows=rows)
+
+
+def efo_get_term(efo_id: str) -> dict:
+    """Fetch detailed metadata for a single EFO term by CURIE.
+
+    Parameters
+    ----------
+    efo_id : str
+        Compact identifier such as ``"EFO:0000305"``.
+
+    Returns
+    -------
+    dict
+        Complete OLS JSON record, including label, definition, synonyms, and
+        hierarchical relationships.
+
+    Example
+    -------
+    >>> efo_get_term("EFO:0000305")["label"]
+    'breast carcinoma'
+    """
+    return _ols_get_term(efo_id, ontology="efo")

@@ -1,4 +1,7 @@
-def construct_instructions(paper_text: str, study_metadata: str):
+import json
+from textwrap import dedent
+
+def build_construct_counts_instructions(paper_text: str, study_metadata: str):
     return f"""
     <paper_text>
     {paper_text}
@@ -9,9 +12,35 @@ def construct_instructions(paper_text: str, study_metadata: str):
     </study_metadata>
     """
 
-def construct_prompt():
+def build_get_target_cell_count_prompt(paper_text: str, study_metadata: str):
 
-    return """
+    example = {
+        "target_cell_count": 123000,
+        "reasoning": "Here is some of thinking:\n",
+    }
+    output_instruction_snippet = dedent(f"""
+    Return raw JSON (not markdown) with keys `target_cell_count` and `reasoning`.
+
+    `reasoning` must be a **full markdown document with newlines**, like the example below.
+
+    <example>
+    {json.dumps(example)}
+    </example>
+    """)
+
+    return dedent(f"""
+    {build_construct_counts_instructions(paper_text, study_metadata)}
+
+    Given the <paper_text> and <study_metadata> above, determine the total cell
+    count from single cell RNA sequencing.
+
+    {output_instruction_snippet}
+    """)
+
+
+def build_construct_counts_prompt(target_cell_count: int):
+
+    return dedent(f"""
     ## CONTEXT
 
     You are operating inside a clean working directory that already contains:
@@ -60,10 +89,11 @@ def construct_prompt():
     - any additional obs variables (eg. `author_` prefixed) have realistic values and not `nan` or similar
     - the count matrix is written to a file named `output.h5ad`
     - there is subject-level metadata available somewhere (if not in `latch_sample_id` then some author variable)
+    - the total number of cells is close to {target_cell_count}
 
     ## STRICT CONSTRAINTS
 
     *  **Do not** normalise, log-transform, or filter the counts.  
 
     After you finish writing build_anndata.py, execute it with "/Users/kenny/latch/latch-curate/construct/.venv/bin/python3 build_anndata.py" and do not exit until the file output.h5ad exists.
-    """
+    """)

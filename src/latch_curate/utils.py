@@ -70,3 +70,10 @@ def write_html_report(html: str, workdir: Path, report_name: str):
     output_html_path = workdir / report_name
     output_html_path.write_text(html)
     print(f"report written to {output_html_path.resolve()}")
+
+def _df_to_html(df: pd.DataFrame) -> str:
+    return (
+        df.to_html(classes="quant", border=0, na_rep="", float_format="{:.2f}".format)
+        .replace("<th>", "<th style='text-align:center'>")
+        .replace("<td>", "<td style='text-align:center'>")
+    )

@@ -7,12 +7,17 @@ class LatchCurateConstants:
     pkg_version_cache_path: str = "latch-curate/cached-version.txt"
     openai_api_key_path: str = "latch-curate/openai_api_key.txt"
 
+    external_id_file_name: str = "external_id.txt"
     metadata_file_name: str = "study_metadata.txt"
     paper_text_file_name: str = "paper_text.txt"
+    paper_url_file_name: str = "paper_url.txt"
     supp_data_dir_name: str = "supp_data"
+
+    download_workdir_name: str = "download"
 
     construct_counts_adata_name: str = "counts.h5ad"
     construct_counts_workdir_name: str = "construct_counts"
+    construct_counts_report_name: str = "construct_counts.html"
 
     qc_adata_name: str = "qc.h5ad"
     qc_workdir_name: str = "qc"
@@ -29,6 +34,9 @@ class LatchCurateConstants:
     harmonize_metadata_adata_name: str = "harmonize_metadata.h5ad"
     harmonize_metadata_workdir_name: str = "harmonize_metadata"
     harmonize_metadata_report_name: str = "harmonize_metadata.html"
+
+    publish_workdir_name: str = "publish"
+    publish_build_info_file_name: str = "build.json"
 
 
 latch_curate_constants = LatchCurateConstants()

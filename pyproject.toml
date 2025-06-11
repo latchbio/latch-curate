@@ -32,7 +32,8 @@ dependencies = [
   "pysradb==2.2.2",
   "docker==7.1.0",
   "openai==1.81.0",
-	"click==8.2.1"
+  "click==8.2.1",
+  "latch>=2.63.1",
 ]
 
 [project.scripts]

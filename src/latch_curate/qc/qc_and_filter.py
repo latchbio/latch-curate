@@ -13,6 +13,7 @@ from latch_curate.utils import _fig_to_base64, print_full_df_string, write_annda
 from latch_curate.llm_utils import prompt_model
 from latch_curate.qc.thresholds import TECH_THRESHOLDS, CountsThresholds
 from latch_curate.constants import latch_curate_constants as lcc
+from latch_curate.utils import _df_to_html
 
 def qcol(metric: str, q: float) -> str:
     return f"{metric}_q{int(q*1000):03d}"
@@ -31,13 +32,6 @@ def _violin_plot(adata: AnnData, groupby: str | None = None):
         return grid[0].figure
     return grid.fig
 
-
-def _df_to_html(df: pd.DataFrame) -> str:
-    return (
-        df.to_html(classes="quant", border=0, na_rep="", float_format="{:.2f}".format)
-        .replace("<th>", "<th style='text-align:center'>")
-        .replace("<td>", "<td style='text-align:center'>")
-    )
 
 def compute_quantiles(adata: AnnData) -> pd.DataFrame:
     tail_quants = {"low": [0.01, 0.05], "high": [0.90, 0.95, 0.99, 0.995]}

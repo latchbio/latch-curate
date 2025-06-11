@@ -8,7 +8,7 @@ from anndata import AnnData
 
 from latch_curate.utils import write_html_report, write_anndata
 from latch_curate.llm_utils import prompt_model, execute_tool_calls
-from latch_curate.harmonize.tools import mondo_search, mondo_get_term, uberon_search, uberon_get_term
+from latch_curate.harmonize.tools import mondo_search, mondo_get_term, uberon_search, uberon_get_term, efo_search, efo_get_term
 from latch_curate.constants import latch_curate_constants as lcc
 
 ControlledMetadataKeys = Literal[
@@ -188,12 +188,25 @@ def build_metadata_prompts(study_metadata: str, paper_text: str, sample_list:
             {output_instruction_snippet}
             """),
             "latch_sequencing_platform": dedent(f"""
-            Now create labels to describe the single cell sequencing platform (usually a
-            kit) for each of the samples in <sample_metadata>
+            <ontology>
+            Use the official EFO ontology ( https://www.ebi.ac.uk/ols4/ontologies/efo ).
+            Example of a correct value: "10x 3' v3/EFO:0009922"
+            </ontology>
+
+            Now create labels to describe the single cell sequencing platform 
+            for each of the samples in <sample_metadata>
 
             Explain your reasoning using the information provided in <study_metadata> and <paper_text>.
 
-            Show me your sources or chain-of-thought for how you decided on the values.
+            Using the <ontology>, provide the exact name and ID for each value. Use exactly
+            those names and IDs in your final dictionary.
+
+            Show me your sources or chain-of-thought for how you decided on the ID. Then
+            confirm you are matching the exact label text from <ontology>. Double check that the
+            ontology names and the IDs are correct.
+
+            Return a dictionary of values with each of <sample_list> values used as the
+            keys and ontology values as "<name>/<ID>".
 
             {output_instruction_snippet}
             """),
@@ -217,7 +230,7 @@ tools_by_key: dict[ControlledMetadataKeys, list[Callable]] = {
          "latch_disease": [mondo_search, mondo_get_term], 
          "latch_tissue": [uberon_search, uberon_get_term], 
          "latch_sample_site": [], 
-         "latch_sequencing_platform": [],
+         "latch_sequencing_platform": [efo_search, efo_get_term],
          "latch_organism": []
         }
 
