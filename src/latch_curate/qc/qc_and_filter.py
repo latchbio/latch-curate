@@ -8,6 +8,7 @@ from textwrap import dedent
 import pandas as pd
 import scanpy as sc
 from anndata import AnnData
+from matplotlib import pyplot as plt
 
 from latch_curate.utils import _fig_to_base64, print_full_df_string, write_anndata, write_html_report
 from latch_curate.llm_utils import prompt_model
@@ -19,6 +20,10 @@ def qcol(metric: str, q: float) -> str:
     return f"{metric}_q{int(q*1000):03d}"
 
 def _violin_plot(adata: AnnData, groupby: str | None = None):
+    if adata.n_obs == 0 or (groupby and adata.obs[groupby].nunique() == 0):
+        return plt.figure()
+    if groupby and pd.api.types.is_categorical_dtype(adata.obs[groupby]):
+        adata.obs[groupby] = adata.obs[groupby].cat.remove_unused_categories()
     grid = sc.pl.violin(
         adata,
         ["n_genes_by_counts", "total_counts", "pct_counts_mt"],
