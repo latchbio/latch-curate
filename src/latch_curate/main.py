@@ -1,11 +1,15 @@
 from pathlib import Path
 from typing import Literal
+from textwrap import dedent
 
 import scanpy as sc
 import click
 import pandas as pd
+import json
 
 from latch.ldata._transfer.node import get_node_data
+from latch.ldata._transfer.progress import Progress
+from latch_cli.services.cp.main import cp as latch_cp
 
 from latch_curate.constants import latch_curate_constants as lcc
 from latch_curate.download import construct_study_metadata, download_gse_supps, get_subseries_ids
@@ -14,9 +18,11 @@ from latch_curate.qc import qc_and_filter
 from latch_curate.transform import transform_counts
 from latch_curate.cell_typing import type_cells as _type_cells
 from latch_curate.harmonize import harmonize_metadata as _harmonize_metadata
-from latch_curate.lint import lint_anndata
-from latch_curate.publish.build import build_publish_data
+from latch_curate.publish.build import build_publish_report, build_publish_data
+from latch_curate.lint.linter import lint_anndata
 from latch_curate.publish.queries import build_publish_queries
+from latch_curate.publish.email_utils import EmailRecipient, send_email_to_authors
+from latch_curate.utils import write_anndata
 
 StepwiseAction = Literal["run", "validate"]
 stepwise_actions: list[StepwiseAction] = ["run", "validate"]
@@ -50,6 +56,7 @@ qc_workdir = project_dir / lcc.qc_workdir_name
 transform_workdir = project_dir / lcc.transform_workdir_name
 type_cells_workdir = project_dir / lcc.type_cells_workdir_name
 harmonize_metadata_workdir = project_dir / lcc.harmonize_metadata_workdir_name
+publish_workdir = project_dir / lcc.publish_workdir_name
 
 def find_workdir_anndata(workdir: Path, name: str):
     matches = [p for p in workdir.iterdir() if p.is_file() and p.name == name]
@@ -210,8 +217,7 @@ def harmonize_metadata(action: list[StepwiseAction]):
         raise ValueError(f"Invalid value {action}. Choose from {stepwise_actions}")
 
 @main.command("publish-build")
-@click.option("--anndata-path", type=click.Path(exists=True, path_type=Path))
-def publish_build(anndata_path: Path):
+def publish_build():
 
         paper_text_file = Path(download_workdir / lcc.paper_text_file_name)
         paper_url_file = Path(download_workdir / lcc.paper_url_file_name)
@@ -221,26 +227,45 @@ def publish_build(anndata_path: Path):
         assert paper_url_file.exists()
         assert external_id_file.exists()
 
-        adata = sc.read_h5ad(anndata_path)
+        adata = sc.read_h5ad(harmonize_metadata_workdir /
+                            lcc.harmonize_metadata_adata_name)
         is_error, tags = lint_anndata(adata)
 
         build_publish_data(
-            paper_text_file.read_text(),
-            paper_url_file.read_text(),
-            external_id_file.read_text(),
-            adata,
-            Path(lcc.publish_workdir_name),
-            tags
+           paper_text_file.read_text(),
+           paper_url_file.read_text(),
+           external_id_file.read_text(),
+           adata,
+           publish_workdir,
+           tags
         )
+
+        report_map = {
+            "construct_counts": construct_counts_workdir / lcc.construct_counts_report_name,
+            "qc": qc_workdir / lcc.qc_report_name,
+            "transform": transform_workdir / lcc.transform_report_name,
+            "type_cells": type_cells_workdir / lcc.type_cells_report_name,
+            "harmonize_metadata": harmonize_metadata_workdir / lcc.harmonize_metadata_report_name,
+        }
+
+        build_publish_report(
+            publish_workdir,
+            report_map
+        )
+        write_anndata(adata, publish_workdir, lcc.publish_adata_name)
 
 
 @main.command("publish-upload")
-@click.option("--anndata-path", type=click.Path(exists=True, path_type=Path))
 @click.option("--latch-dest", type=str)
-def publish_upload(anndata_path: Path, latch_dest: str):
+def publish_upload(latch_dest: str):
 
-        full_latch_dest = f'{latch_dest}/{anndata_path.name}'
-        # latch_cp([str(anndata_path.resolve())], full_latch_dest, progress=Progress.tasks, verbose=False, expand_globs=False)
+        publish_data = json.loads((publish_workdir /
+                                   lcc.publish_build_info_file_name).read_text())
+
+        display_name = publish_data['info']['display_name']
+        full_latch_dest = f'{latch_dest}/{display_name}'
+
+        latch_cp([str(publish_workdir.resolve())], full_latch_dest, progress=Progress.tasks, verbose=False, expand_globs=False)
 
         res = get_node_data(full_latch_dest)
         node_id = res.data[full_latch_dest].id
@@ -254,6 +279,79 @@ def publish_upload(anndata_path: Path, latch_dest: str):
 
     # upload portal
     # send email
+
+@main.command("publish-email")
+def publish_email():
+
+    publish_data = json.loads((publish_workdir /
+                               lcc.publish_build_info_file_name).read_text())
+
+    dataset_info = publish_data['info']
+
+    corr_author_names = dataset_info['corresponding_author_names']
+    corr_author_emails = dataset_info['corresponding_author_emails']
+    paper_title = dataset_info['paper_title']
+    display_name = dataset_info['display_name']
+    cell_count = dataset_info['cell_count']
+
+    recipients = [EmailRecipient(email=email,name=name) for email, name in
+                  zip(corr_author_emails, corr_author_names)]
+
+
+    subject = f"Automated LLM Curation of {paper_title}"
+    greeting = ""
+
+    assert len(recipients) > 0
+
+    recipient_names = [x.name for x in recipients]
+    if len(recipient_names) == 1:
+        greeting = f"Dear {recipient_names[0]},"
+    elif len(recipient_names) == 2:
+        greeting = f"Dear {recipient_names[0]} and {recipient_names[1]},"
+    else:
+        all_but_last = ", ".join(recipient_names[:-1])
+        last = recipient_names[-1]
+        greeting = f"Dear {all_but_last}, and {last},"
+
+    body = dedent(
+        f"""\
+<html>
+  <body>
+    <p>{greeting}</p>
+
+    <p>The {cell_count} single cells associated with <strong>{paper_title}</strong> have been
+    automatically curated with an agential LLM framework and uploaded to
+    <a href="https://console.latch.bio/datasets" target="_blank">LatchBio</a>.<p>
+
+    <p>A report outlining e.g. quality control, cell typing,
+    study metadata is attached to this email. It also provides an overview
+    of the curation mechanics and how our team was able to automate this
+    process.</p>
+
+    <p>The dataset is currently being sold on Latch as {display_name.strip()}. 
+    Companies in industry will use it to create large cell atlases and train new
+    foundation models - towards understanding, treating and eventually
+    curing complex disease.</p>
+
+    <p>Our intention is to redirect a majority of this revenue back to the
+    authors to fund more basic research. Please respond to this email to
+    participate in revenue sharing or for any other inquiries.</p>
+
+    <p>Thank you for your contributions to science and the future of
+    engineering biology.</p>
+
+    <p>Kenny Workman<br/>
+    CTO | LatchBio</p>
+
+    <hr/>
+
+    <p><small>This message and curation results are entirely automated. Excuse any errors.</small></p>
+  </body>
+</html>
+"""
+    )
+
+    send_email_to_authors(subject, body, recipients, publish_workdir / lcc.publish_report_name)
 
 
 @main.command("convert")

@@ -316,8 +316,6 @@ def construct_counts(
             excerpt = indent(str(err), '> ')
             construct_counts_prompt += f"\n\n# Validation failure (attempt {attempt}): {excerpt}\n"
     else:
-        html = build_construct_report_html(adata, validation_log)
-        write_html_report(html, workdir, lcc.construct_counts_report_name)
         raise RuntimeError("Maximum rounds reached without passing tests.")
 
     artefact_src = workdir / "output.h5ad"

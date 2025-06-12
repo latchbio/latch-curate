@@ -36,6 +36,9 @@ class LatchCurateConstants:
     harmonize_metadata_report_name: str = "harmonize_metadata.html"
 
     publish_workdir_name: str = "publish"
+    publish_adata_name: str = "publish.h5ad"
+    publish_report_name: str = "publish.html"
+
     publish_build_info_file_name: str = "build.json"
 
 
