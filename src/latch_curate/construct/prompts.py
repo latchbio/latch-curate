@@ -72,6 +72,10 @@ def build_construct_counts_prompt(target_cell_count: int):
     `scrna_utils.py` for relevant components of workflow.
     * Try to match the author cell count provided in <paper_text> with the total cell count in your matrix
     * Try to use all of the relevant information in <paper_text> and <study_metadata> to help you with your task
+    * The paper reports a total cell count around {target_cell_count}. Use this
+    as a guideline, especially if you are below this value, as it indicates you
+    should look for more data. NEVER downsample or drop raw data if you are
+    above this target value.
 
     ---
 
@@ -89,7 +93,6 @@ def build_construct_counts_prompt(target_cell_count: int):
     - any additional obs variables (eg. `author_` prefixed) have realistic values and not `nan` or similar
     - the count matrix is written to a file named `output.h5ad`
     - there is subject-level metadata available somewhere (if not in `latch_sample_id` then some author variable)
-    - the total number of cells is close to {target_cell_count}
 
     ## STRICT CONSTRAINTS
 

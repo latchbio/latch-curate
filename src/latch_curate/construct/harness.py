@@ -176,7 +176,6 @@ def pretty_step(step: AgentStep, width: int = 500) -> str:
     return f"{prefix} {step.kind.upper():7} {step.subtype}"
 
 def parse_codex_line(raw: str) -> AgentStep | None:
-
     raw = raw.strip()
     if not raw:
         return None
