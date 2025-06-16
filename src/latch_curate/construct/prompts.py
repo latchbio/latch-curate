@@ -145,7 +145,10 @@ def build_construct_counts_prompt(target_cell_count: int):
 
     ## STRICT CONSTRAINTS
 
-    *  **Do not** normalise, log-transform, or filter the counts.  
+    * **Do not** normalise, log-transform, or filter the counts.  
+    * Under **no circumstances** should the script subset, sample, or
+    downsample the raw data.  It must load every barcode and every nonzero
+    count value.
 
     After you finish writing build_anndata.py, execute it with "/Users/kenny/latch/latch-curate/construct/.venv/bin/python3 build_anndata.py" and do not exit until the file output.h5ad exists.
     """)
