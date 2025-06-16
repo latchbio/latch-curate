@@ -1,5 +1,36 @@
+import re
 import json
 from textwrap import dedent
+
+
+def build_review_prompt(paper_text: str, study_metadata: str, driver_script:
+                        str, agent_prompt: str, agent_logs: str, query: str):
+    return f"""
+    <paper_text>
+    {paper_text}
+    </paper_text>
+
+    <study_metadata>
+    {study_metadata}
+    </study_metadata>
+
+    <driver_script>
+    {driver_script}
+    </driver_script>
+
+    <agent_prompt>
+    {agent_prompt}
+    </agent_prompt>
+
+    <agent_logs>
+    {agent_logs}
+    </agent_logs>
+
+    Use all of the context above to answer the following question about past agent
+    behavior:
+
+    {query}
+    """
 
 def build_construct_counts_instructions(paper_text: str, study_metadata: str):
     return f"""
@@ -37,6 +68,22 @@ def build_get_target_cell_count_prompt(paper_text: str, study_metadata: str):
     {output_instruction_snippet}
     """)
 
+
+validation_failure_pattern = r"<validation_failure>.*?</validation_failure>",
+
+def add_or_replace_validation_failure(prompt: str, validation_failure: str):
+    tagged_failure = dedent("""\
+    <validation_failure>
+    {validation_failure.rstrip()}
+    </validation_failure>
+    """)
+    if re.search(validation_failure_pattern, prompt):
+         return re.sub(
+             validation_failure_pattern,
+             tagged_failure,
+             prompt,
+         )
+    return f"{prompt}\n\n{tagged_failure}"
 
 def build_construct_counts_prompt(target_cell_count: int):
 
@@ -76,7 +123,9 @@ def build_construct_counts_prompt(target_cell_count: int):
     as a guideline, especially if you are below this value, as it indicates you
     should look for more data. NEVER downsample or drop raw data if you are
     above this target value.
-
+    * Prioritize the information in <validation_failure>, if it exists. It
+    contains failed validation tests that check the criteria in ## VALIDATION
+    from your last attempt to perform this task.
     ---
 
     ## VALIDATION

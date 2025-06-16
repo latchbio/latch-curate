@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from pathlib import Path
 import shutil
+import re
 
 import docker
 import os
@@ -8,14 +9,14 @@ import anndata as ad
 from anndata import AnnData
 import pandas as pd
 import scipy.sparse as sp
-from textwrap import dedent, indent, shorten
+from textwrap import dedent, shorten
 import json
 
 from latch_curate.llm_utils import prompt_model
 from latch_curate.constants import latch_curate_constants as lcc
 from latch_curate.construct.validate import validate_counts_object
 from latch_curate.utils import _df_to_html, write_html_report
-from latch_curate.construct.prompts import build_construct_counts_prompt, build_construct_counts_instructions, build_get_target_cell_count_prompt
+from latch_curate.construct.prompts import build_construct_counts_prompt, build_construct_counts_instructions, build_get_target_cell_count_prompt, build_review_prompt, add_or_replace_validation_failure
 from latch_curate.config import user_config
 
 OPENAI_SYSTEM_PROMPT_LEN = 2512
@@ -26,26 +27,6 @@ def get_system_memory() -> int:
     page_size = os.sysconf('SC_PAGE_SIZE')
     total_bytes = pages * page_size
     return total_bytes
-
-def client_from_env():
-    host = os.environ.get("DOCKER_HOST")
-    if host is not None:
-        return docker.DockerClient(base_url=host.strip())
-
-    socket_paths = [
-        "/var/run/docker.sock",  # linux
-        os.path.expanduser(Path().home() / ".docker/run/docker.sock"),  # Docker Desktop on macOS newer versions
-        os.path.expanduser(Path().home() / "Library/Containers/com.docker.docker/Data/docker.sock"),  # Docker Desktop on macOS older versions
-    ]
-    for p in socket_paths:
-        if Path(p).exists():
-            os.environ["DOCKER_HOST"] = f"unix://{p}"
-            return docker.DockerClient(base_url=f"unix://{p}")
-    raise OSError(
-        "Cannot find a Docker socket. Checked:\n  " +
-        "\n  ".join(socket_paths) +
-        "\nEither start Docker or set DOCKER_HOST explicitly."
-    )
 
 def build_construct_report_html(
         adata: AnnData,
@@ -205,6 +186,7 @@ def parse_codex_line(raw: str) -> AgentStep | None:
 
     return AgentStep(id=rec.get("id") or rec.get("call_id") or "<no-id>", kind=kind, subtype=subtype, call_id=call_id, meta=meta)
 
+construct_counts_prompt_name = "construct_counts_prompt.md"
 
 def construct_counts(
     data_dir: Path,
@@ -222,7 +204,7 @@ def construct_counts(
         shutil.copy(src, workdir / src.name)
 
     instructions_path = workdir / "instructions.md"
-    construct_counts_prompt_path = workdir / "construct_counts_prompt.md"
+    construct_counts_prompt_path = workdir / construct_counts_prompt_name
 
     paper_text = paper_text_path.read_text()
     study_metadata = study_metadata_path.read_text()
@@ -257,11 +239,10 @@ def construct_counts(
     instructions_path.write_text(instructions)
 
     for attempt in range(1, max_rounds + 1):
-
         construct_counts_prompt_path.write_text(construct_counts_prompt)
         print(f"\n=== Agential count matrix construction attempt {attempt}/{max_rounds} ===")
 
-        client = client_from_env()
+        client = docker.from_env()
         system_memory_bytes = get_system_memory()
         docker_mem_limit = int(system_memory_bytes * 0.8) // (1024 ** 3)
         print(f"{system_memory_bytes} bytes of system memory. Setting agent limit to {docker_mem_limit} GB.")
@@ -311,9 +292,7 @@ def construct_counts(
             print('[ok] in-code validation passed')
             break
         except Exception as err:
-            print(f'[retry] validation failed: {err}')
-            excerpt = indent(str(err), '> ')
-            construct_counts_prompt += f"\n\n# Validation failure (attempt {attempt}): {excerpt}\n"
+            construct_counts_prompt = add_or_replace_validation_failure(construct_counts_prompt, str(err))
     else:
         raise RuntimeError("Maximum rounds reached without passing tests.")
 
@@ -328,3 +307,40 @@ def construct_counts(
     shutil.move(artefact_src, artefact_dest)
     print(f"anndata at {artefact_dest}")
     return artefact_dest
+
+agent_log_pattern = re.compile(r"codex_round(\d+)\.log$")
+
+def review_counts(
+    paper_text_path: Path,
+    study_metadata_path: Path,
+    workdir: Path,
+    query: str,
+) -> Path:
+
+    driver_script = workdir / "build_anndata.py"
+    agent_prompt = workdir / construct_counts_prompt_name
+
+    assert driver_script.exists()
+    assert agent_prompt.exists()
+
+    last_logs_path = max(
+        (p for p in workdir.glob("codex_round*.log") if agent_log_pattern.search(p.name)),
+        key=lambda p: int(agent_log_pattern.search(p.name).group(1)),
+        default=None,
+    )
+
+    if last_logs_path:
+        print("Using latest agent log:", last_logs_path, "round",
+              agent_log_pattern.search(last_logs_path.name).group(1))
+    else:
+        print("no codex_round logs yet")
+
+    review_prompt = build_review_prompt(paper_text_path.read_text(),
+                        study_metadata_path.read_text,
+                        driver_script.read_text(),
+                        agent_prompt.read_text(),
+                        last_logs_path.read_text(),
+                        query,
+                        )
+
+    print(prompt_model([{"role": "user", "content": review_prompt}])[0])

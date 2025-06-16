@@ -13,7 +13,7 @@ from latch_cli.services.cp.main import cp as latch_cp
 
 from latch_curate.constants import latch_curate_constants as lcc
 from latch_curate.download import construct_study_metadata, download_gse_supps, get_subseries_ids
-from latch_curate.construct import construct_counts as _construct_counts
+from latch_curate.construct import construct_counts as _construct_counts, review_counts
 from latch_curate.qc import qc_and_filter
 from latch_curate.transform import transform_counts
 from latch_curate.cell_typing import type_cells as _type_cells
@@ -24,8 +24,8 @@ from latch_curate.publish.queries import build_publish_queries
 from latch_curate.publish.email_utils import EmailRecipient, send_email_to_authors
 from latch_curate.utils import write_anndata
 
-StepwiseAction = Literal["run", "validate"]
-stepwise_actions: list[StepwiseAction] = ["run", "validate"]
+StepwiseAction = Literal["run", "review"]
+stepwise_actions: list[StepwiseAction] = ["run", "review"]
 
 @click.group("latch-curate", context_settings={"max_content_width": 160},
              invoke_without_command=True)
@@ -106,35 +106,46 @@ def download(action: list[StepwiseAction], gse_id: str):
             f"into {download_workdir / lcc.paper_url_file_name}"
         )
 
-    elif action == "validate":
-        for n in {lcc.metadata_file_name, lcc.paper_text_file_name, lcc.supp_data_dir_name}: 
-            assert (project_dir / n).exists()
     else:
         raise ValueError(f"Invalid value {action}. Choose from {stepwise_actions}")
+
 
 @main.command("construct-counts")
-@click.argument("action", type=click.Choice(stepwise_actions))
-def construct_counts(action: list[StepwiseAction]):
+def construct_counts():
+    ...
 
-    if action == "run":
-        supp_data_dir = download_workdir / lcc.supp_data_dir_name
-        metadata_file = download_workdir / lcc.metadata_file_name
-        paper_text_file = download_workdir / lcc.paper_text_file_name
-        for n in {supp_data_dir, metadata_file, paper_text_file}:
-            assert n.exists(), f"{n.name} does not exist"
 
-        print("[construct-counts/run] Starting count matrix construction")
-        _construct_counts(
-            supp_data_dir,
-            paper_text_file,
-            metadata_file,
-            construct_counts_workdir
-        )
+def check_construct_counts_files_exist() -> (Path, Path, Path):
+    supp_data_dir = download_workdir / lcc.supp_data_dir_name
+    metadata_file = download_workdir / lcc.metadata_file_name
+    paper_text_file = download_workdir / lcc.paper_text_file_name
+    for n in {supp_data_dir, metadata_file, paper_text_file}:
+        assert n.exists(), f"{n.name} does not exist"
 
-    elif action == "validate":
-        assert (construct_counts_workdir / lcc.construct_counts_adata_name).exists()
-    else:
-        raise ValueError(f"Invalid value {action}. Choose from {stepwise_actions}")
+
+@construct_counts.command(name="run")
+def run():
+
+    supp_data_dir, paper_text_file, metadata_file = check_construct_counts_files_exist()
+    print("[construct-counts/run] Starting count matrix construction")
+    _construct_counts(
+        supp_data_dir,
+        paper_text_file,
+        metadata_file,
+        construct_counts_workdir
+    )
+    assert (construct_counts_workdir / lcc.construct_counts_adata_name).exists()
+
+def review():
+    _, paper_text_file, metadata_file = check_construct_counts_files_exist()
+    print("[construct-counts/review] Starting review of construction context")
+    review_counts(
+        paper_text_file,
+        metadata_file,
+        construct_counts_workdir,
+        review
+    )
+    return
 
 @main.command("qc")
 @click.argument("action", type=click.Choice(stepwise_actions))
