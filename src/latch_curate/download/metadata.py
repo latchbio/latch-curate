@@ -7,7 +7,7 @@ from pysradb.sraweb import SRAweb
 import GEOparse
 import pandas as pd
 
-from latch_curate.utils import print_full_df_string
+from latch_curate.utils import df_to_str
 sradb = SRAweb()
 
 def remove_dir_recursive(p: Path):
@@ -95,11 +95,11 @@ def construct_study_metadata(gse_id: str, metadata_file: Path, srp_df_cache: dic
 
     metadata_text = dedent(f"""
     <srp_metadata>
-    {print_full_df_string(srp_df) if srp_df is not None else ""}
+    {df_to_str(srp_df) if srp_df is not None else ""}
     </srp_metadata>
 
     <gse_metadata>
-    {print_full_df_string(gse_df)}
+    {df_to_str(gse_df)}
     </gse_metadata>
     """)
 

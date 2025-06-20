@@ -33,13 +33,19 @@ class UserConfig:
 
     def __init__(self):
         self._root = Path.home().resolve() / ".latch"
-        self._token_path = None
 
     @property
     def root(self) -> Path:
         if not self._root.exists():
             self._root.mkdir(parents=True)
         return self._root
+
+    @property
+    def token(self) -> Path:
+        token_path = self.root / "token"
+        if not token_path.exists():
+            raise ValueError("SDK token does not exist. Ensure you are in a properly configured latch pod.")
+        return token_path.read_text()
 
     @property
     def package_version_cache_location(self) -> Path:

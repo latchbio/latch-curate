@@ -3,6 +3,12 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class LatchCurateConstants:
     pkg_name: str = "latch-curate"
+    nucleus_url: str = "https://nucleus.latch.bio/infer"
+    # nucleus_url: str = "http://localhost:5000"
+
+    get_fixed_qc_thresholds_endpoint = "get-fixed-qc-thresholds"
+    get_cell_types_endpoint = "get-cell-types"
+    get_harmonized_metadata_endpoint = "get-harmonized-metadata"
 
     pkg_version_cache_path: str = "latch-curate/cached-version.txt"
     openai_api_key_path: str = "latch-curate/openai_api_key.txt"

@@ -110,21 +110,22 @@ def download(action: list[StepwiseAction], gse_id: str):
         raise ValueError(f"Invalid value {action}. Choose from {stepwise_actions}")
 
 
-@main.command("construct-counts")
+@main.group("construct-counts")
 def construct_counts():
     ...
 
 
 def check_construct_counts_files_exist() -> (Path, Path, Path):
     supp_data_dir = download_workdir / lcc.supp_data_dir_name
-    metadata_file = download_workdir / lcc.metadata_file_name
     paper_text_file = download_workdir / lcc.paper_text_file_name
+    metadata_file = download_workdir / lcc.metadata_file_name
     for n in {supp_data_dir, metadata_file, paper_text_file}:
         assert n.exists(), f"{n.name} does not exist"
+    return supp_data_dir, paper_text_file, metadata_file
 
 
 @construct_counts.command(name="run")
-def run():
+def construct_counts_run():
 
     supp_data_dir, paper_text_file, metadata_file = check_construct_counts_files_exist()
     print("[construct-counts/run] Starting count matrix construction")
@@ -136,14 +137,14 @@ def run():
     )
     assert (construct_counts_workdir / lcc.construct_counts_adata_name).exists()
 
-def review():
+def construct_counts_review(query: str):
     _, paper_text_file, metadata_file = check_construct_counts_files_exist()
     print("[construct-counts/review] Starting review of construction context")
     review_counts(
         paper_text_file,
         metadata_file,
         construct_counts_workdir,
-        review
+        query,
     )
     return
 

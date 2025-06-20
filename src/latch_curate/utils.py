@@ -32,7 +32,7 @@ def _fig_to_base64(obj) -> str:
     return base64.b64encode(buf.read()).decode("ascii")
 
 
-def print_full_df_string(df: pd.DataFrame) -> str:
+def df_to_str(df: pd.DataFrame) -> str:
     return df.to_string(max_rows=None, max_cols=None, line_width=None)
 
 

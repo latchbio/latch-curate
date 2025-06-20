@@ -1,0 +1,21 @@
+set shell := ["bash", "-c"]
+
+@default:
+  just --list --unsorted
+
+docker_image_name := "latch-curate-construct"
+
+docker_registry := "public.ecr.aws/p5z7v3z8"
+docker_image_version := "latest"
+docker_image_full := docker_registry + "/" + docker_image_name + ":" + docker_image_version
+
+@docker-login:
+  aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin {{docker_registry}}
+
+@docker-build:
+  docker build -t {{docker_image_full}} -f "Dockerfile" .
+
+@docker-push:
+  docker push {{docker_image_full}}
+
+@dbnp: docker-build docker-push

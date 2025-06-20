@@ -8,8 +8,9 @@ from anndata import AnnData
 
 from latch_curate.cell_typing.marker_genes import marker_genes, remove_absent_symbols
 from latch_curate.cell_typing.vocab import cell_typing_vocab
+from latch_curate.config import user_config
 from latch_curate.utils import _fig_to_base64, write_html_report, write_anndata
-from latch_curate.llm_utils import prompt_model
+from latch_curate.tinyrequests import post
 from latch_curate.constants import latch_curate_constants as lcc
 
 cluster_key = "leiden_res_0.50"
@@ -32,40 +33,6 @@ def construct_diff_exp_json(adata: AnnData, top_n: int = 20) -> dict:
             for i, g in enumerate(genes)
         ]
     return out
-
-
-def build_de_prompt(diff_exp: dict, markers: dict, vocab: dict) -> str:
-    example = {
-        "annotations": {"0": "endothelial cell/CL:0000115"},
-        "reasoning": "### Cluster 0\n…",
-    }
-    return dedent(
-        f"""
-        <markers>
-        {markers}
-        </markers>
-
-        <vocab>
-        {vocab}
-        </vocab>
-
-        <diff-exp-data>
-        {diff_exp}
-        </diff-exp-data>
-
-        Annotate each cluster in <diff-exp-data> with a cell type chosen **exactly** from <vocab>.
-        • Treat clusters that only show S100A8/9 epithelial expression as epithelial.
-        • Treat clusters with NK-cell markers as T cells.
-        • If uncertain, use `unknown/`.
-
-        Return raw JSON (not markdown) with keys `annotations` and `reasoning`.
-        `reasoning` must be a **full markdown document with newlines**, like the example below.
-
-        <example>
-        {json.dumps(example, indent=2)}
-        </example>
-        """
-    )
 
 
 def _build_report_html(ann: dict, reasoning_md: str, dotplot_fig: plt.Figure,
@@ -108,19 +75,24 @@ def type_cells(
 
     print("starting differential expression")
     de_json = construct_diff_exp_json(adata)
-    prompt = build_de_prompt(de_json, marker_genes, cell_typing_vocab)
 
-    print("sending prompt to LLM")
-    while True:
-        try:
-            message_resp_json, _ = prompt_model([{"role": "user", "content": prompt}])
-            resp = json.loads(message_resp_json)
-            annotations: dict = resp["annotations"]
-            reasoning: str = resp["reasoning"]
-            break
-        except Exception as e:
-            print(f"dumping error: {e}")
-            print("invalid model response, retrying…")
+    print("Requesting cell types from model")
+    resp = post(
+        f"{lcc.nucleus_url}/{lcc.get_cell_types_endpoint}",
+        {
+            "marker_genes": json.dumps(marker_genes),
+            "de_json": json.dumps(de_json),
+            "cell_typing_vocab": json.dumps(cell_typing_vocab),
+            "session_id": -1, # todo(kenny)
+        },
+        headers = {"Authorization": f"Latch-SDK-Token {user_config.token}"}
+    )
+    try:
+        data = resp.json()['data']
+        annotations = data['annotations']
+        reasoning = data['reasoning']
+    except KeyError:
+        raise ValueError(f'Malformed response data: {resp.json()}')
 
     print("mapping annotations onto AnnData")
     adata.obs["latch_cell_type_lvl_1"] = adata.obs[cluster_key].astype(str).map(annotations)

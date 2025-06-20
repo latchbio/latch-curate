@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Any
 from pathlib import Path
-import json
 from textwrap import dedent
 
 import pandas as pd
@@ -10,11 +9,11 @@ import scanpy as sc
 from anndata import AnnData
 from matplotlib import pyplot as plt
 
-from latch_curate.utils import _fig_to_base64, print_full_df_string, write_anndata, write_html_report
-from latch_curate.llm_utils import prompt_model
-from latch_curate.qc.thresholds import TECH_THRESHOLDS, CountsThresholds
+from latch_curate.tinyrequests import post
+from latch_curate.utils import _fig_to_base64, write_anndata, write_html_report
 from latch_curate.constants import latch_curate_constants as lcc
-from latch_curate.utils import _df_to_html
+from latch_curate.config import user_config
+from latch_curate.utils import _df_to_html, df_to_str
 
 def qcol(metric: str, q: float) -> str:
     return f"{metric}_q{int(q*1000):03d}"
@@ -59,35 +58,6 @@ def compute_quantiles(adata: AnnData) -> pd.DataFrame:
         )
     )
 
-def build_fixed_threshold_prompt(
-    metrics: set[str],
-    quantile_table: pd.DataFrame,
-    study_metadata: str,
-    paper_text: str,
-    thresholds_by_technology: dict[str, CountsThresholds],
-) -> str:
-
-    example_output = {k: "" for k in list(metrics) + ["notes"]}
-
-    return dedent(
-        f"""
-        <study_metadata>\n{study_metadata}\n</study_metadata>
-
-        <quantile_table>\n{print_full_df_string(quantile_table)}\n</quantile_table>
-
-        <thresholds_by_technology>\n{thresholds_by_technology}\n</thresholds_by_technology>
-
-        I need you to construct first‑pass thresholds to QC single‑cell data.
-        You get:
-          • <quantile_table> per sample
-          • <thresholds_by_technology> canonical suggestions
-          • <study_metadata> info
-
-        Produce ONE conservative threshold set for {metrics}.
-        Output raw JSON (not markdown) exactly like {example_output}. No extra text.
-        """
-    )
-
 def build_qc_report_html(stages: list[dict[str, Any]], title: str = "QC & Filtering Report") -> str:
     rows_html: list[str] = []
     for s in stages:
@@ -120,6 +90,16 @@ def build_qc_report_html(stages: list[dict[str, Any]], title: str = "QC & Filter
         </body></html>"""
     )
 
+def _stage_snapshot(name: str, _adata: AnnData) -> dict[str, Any]:
+    return {
+        "name": name,
+        "total": _adata.n_obs,
+        "counts": _adata.obs["latch_sample_id"].value_counts().to_dict(),
+        "global_fig": _fig_to_base64(_violin_plot(_adata)),
+        "sample_fig": _fig_to_base64(_violin_plot(_adata, groupby="latch_sample_id")),
+        "qtable": _df_to_html(compute_quantiles(_adata)),
+    }
+
 
 def qc_and_filter(
     adata: AnnData,
@@ -135,45 +115,29 @@ def qc_and_filter(
 
     study_metadata = study_metadata_path.read_text()
     paper_text = paper_text_path.read_text()
+    quantile_table = compute_quantiles(adata)
 
-    def _stage_snapshot(name: str, _adata: AnnData) -> dict[str, Any]:
-        return {
-            "name": name,
-            "total": _adata.n_obs,
-            "counts": _adata.obs["latch_sample_id"].value_counts().to_dict(),
-            "global_fig": _fig_to_base64(_violin_plot(_adata)),
-            "sample_fig": _fig_to_base64(_violin_plot(_adata, groupby="latch_sample_id")),
-            "qtable": _df_to_html(compute_quantiles(_adata)),
-        }
+    print("Requesting fixed thresholds from model")
+    resp = post(
+        f"{lcc.nucleus_url}/{lcc.get_fixed_qc_thresholds_endpoint}",
+        {
+            "study_metadata": study_metadata,
+            "paper_text": paper_text,
+            "quantile_table": df_to_str(quantile_table),
+            "session_id": -1, # todo(kenny)
+        },
+        headers = {"Authorization": f"Latch-SDK-Token {user_config.token}"}
+    )
+    try:
+        data = resp.json()['data']
+        min_genes = data['min_genes']
+        max_counts = data['max_counts']
+        max_pct_mt = data['max_pct_mt']
+    except KeyError:
+        raise ValueError(f'Malformed response data :{data}')
 
     stages: list[dict[str, Any]] = []
     stages.append(_stage_snapshot("Before filtering", adata))
-
-    quantile_table = compute_quantiles(adata)
-    prompt = build_fixed_threshold_prompt(
-        {"min_genes", "max_total_counts", "max_pct_mt"},
-        quantile_table,
-        study_metadata,
-        paper_text,
-        TECH_THRESHOLDS,
-    )
-
-    while True:
-        print("Requesting fixed thresholds from language model")
-        message_resp_json, _ = prompt_model([{"role": "user", "content": prompt}])
-        try:
-            fixed = json.loads(message_resp_json)
-            min_genes = int(fixed["min_genes"])
-            max_counts = None if fixed["max_total_counts"] is None else int(fixed["max_total_counts"])
-            max_pct_mt = int(fixed["max_pct_mt"])
-            print(f" min_genes >> {min_genes}")
-            print(f" max_counts >> {max_counts}")
-            print(f" max_pct_mt >> {max_pct_mt}")
-            break
-        except Exception:
-            print(f">>> resp: {message_resp_json}")
-            print("Malformed JSON output model. Trying again.")
-            continue
 
     print("Applying fixed thresholds")
     sc.pp.filter_cells(adata, min_genes=min_genes)

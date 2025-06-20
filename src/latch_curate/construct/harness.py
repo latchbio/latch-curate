@@ -252,8 +252,8 @@ def construct_counts(
                 f'codex --model {model} --approval-mode full-auto --quiet "$(cat {construct_counts_prompt_path.name})"'
             )
             container = client.containers.run(
-                # todo(kenny): obv
-                image="foobar",
+                # todo(kenny)
+                image="public.ecr.aws/p5z7v3z8/latch-curate-construct:latest",
                 command=[
                     "/usr/bin/bash",
                     "-lc",

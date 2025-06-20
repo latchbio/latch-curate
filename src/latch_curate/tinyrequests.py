@@ -1,7 +1,7 @@
 import time
 import json as _json
 from http import HTTPStatus
-from http.client import HTTPException, HTTPResponse, HTTPSConnection
+from http.client import HTTPException, HTTPResponse, HTTPSConnection, HTTPConnection
 from urllib.parse import urlparse, urlunparse
 from typing import Any, Dict, Optional
 
@@ -30,7 +30,10 @@ def _req(
 
     retries = 3
     while True:
-        conn = HTTPSConnection(parts.hostname, port, timeout=90)
+        if port == 443:
+            conn = HTTPSConnection(parts.hostname, port, timeout=90)
+        else:
+            conn = HTTPConnection(parts.hostname, port, timeout=90)
 
         try:
             conn.request(
@@ -145,6 +148,23 @@ def request(
     if res is None:
         raise err
     return res
+
+def post(
+    url: str,
+    json: dict,
+    *,
+    headers: Dict[str, str] = {},
+    stream: bool = False,
+    num_retries: int = 3,
+) -> TinyResponse:
+    return request(
+        "POST",
+        url,
+        headers=headers,
+        json=json,
+        stream=stream,
+        num_retries=num_retries,
+    )
 
 def get(
     url: str,
