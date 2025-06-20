@@ -42,7 +42,7 @@ def build_construct_counts_instructions(paper_text: str, study_metadata: str):
     </study_metadata>
     """
 
-validation_failure_pattern = r"<validation_failure>.*?</validation_failure>",
+validation_failure_pattern = r"<validation_failure>.*?</validation_failure>"
 
 def add_or_replace_validation_failure(prompt: str, validation_failure: str):
     tagged_failure = dedent("""\
