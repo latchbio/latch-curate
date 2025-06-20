@@ -45,7 +45,7 @@ def build_construct_counts_instructions(paper_text: str, study_metadata: str):
 validation_failure_pattern = r"<validation_failure>.*?</validation_failure>"
 
 def add_or_replace_validation_failure(prompt: str, validation_failure: str):
-    tagged_failure = dedent("""\
+    tagged_failure = dedent(f"""\
     <validation_failure>
     {validation_failure.rstrip()}
     </validation_failure>
