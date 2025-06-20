@@ -1,5 +1,4 @@
 import re
-import json
 from textwrap import dedent
 
 
@@ -42,32 +41,6 @@ def build_construct_counts_instructions(paper_text: str, study_metadata: str):
     {study_metadata}
     </study_metadata>
     """
-
-def build_get_target_cell_count_prompt(paper_text: str, study_metadata: str):
-
-    example = {
-        "target_cell_count": 123000,
-        "reasoning": "Here is some of thinking:\n",
-    }
-    output_instruction_snippet = dedent(f"""
-    Return raw JSON (not markdown) with keys `target_cell_count` and `reasoning`.
-
-    `reasoning` must be a **full markdown document with newlines**, like the example below.
-
-    <example>
-    {json.dumps(example)}
-    </example>
-    """)
-
-    return dedent(f"""
-    {build_construct_counts_instructions(paper_text, study_metadata)}
-
-    Given the <paper_text> and <study_metadata> above, determine the total cell
-    count from single cell RNA sequencing.
-
-    {output_instruction_snippet}
-    """)
-
 
 validation_failure_pattern = r"<validation_failure>.*?</validation_failure>",
 

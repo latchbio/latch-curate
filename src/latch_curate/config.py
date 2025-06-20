@@ -25,7 +25,9 @@ class EmailConfig():
             self.starttls      = config_data["starttls"]
             self.timeout       = config_data["timeout"]
         except KeyError:
-            raise RuntimeError(f"Malformed {self._config_file}")
+            # todo(kenny)
+            print("No email config detected: limits publish functionality")
+            # raise RuntimeError(f"Malformed {self._config_file}")
 
 email_config = EmailConfig()
 

@@ -6,6 +6,7 @@ class LatchCurateConstants:
     nucleus_url: str = "https://nucleus.latch.bio/infer"
     # nucleus_url: str = "http://localhost:5000"
 
+    get_cell_count_endpoint = "get-cell-count"
     get_fixed_qc_thresholds_endpoint = "get-fixed-qc-thresholds"
     get_cell_types_endpoint = "get-cell-types"
     get_harmonized_metadata_endpoint = "get-harmonized-metadata"

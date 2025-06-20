@@ -12,11 +12,12 @@ import scipy.sparse as sp
 from textwrap import dedent, shorten
 import json
 
+from latch_curate.tinyrequests import post
 from latch_curate.llm_utils import prompt_model
 from latch_curate.constants import latch_curate_constants as lcc
 from latch_curate.construct.validate import validate_counts_object
 from latch_curate.utils import _df_to_html, write_html_report
-from latch_curate.construct.prompts import build_construct_counts_prompt, build_construct_counts_instructions, build_get_target_cell_count_prompt, build_review_prompt, add_or_replace_validation_failure
+from latch_curate.construct.prompts import build_construct_counts_prompt, build_construct_counts_instructions, build_review_prompt, add_or_replace_validation_failure
 from latch_curate.config import user_config
 
 OPENAI_SYSTEM_PROMPT_LEN = 2512
@@ -209,22 +210,23 @@ def construct_counts(
     paper_text = paper_text_path.read_text()
     study_metadata = study_metadata_path.read_text()
 
-    get_target_cell_count_prompt = build_get_target_cell_count_prompt(paper_text, study_metadata)
-
-    while True:
-        print("Requesting target cell count from language model")
-        message_resp_json, _ = prompt_model([{"role": "user", "content": get_target_cell_count_prompt}])
-        try:
-            data = json.loads(message_resp_json)
-            target_cell_count = int(data["target_cell_count"])
-            reasoning = data["reasoning"]
-            print(f" target cell count >> {target_cell_count}")
-            print(f" reasoning >> {reasoning}")
-            break
-        except Exception:
-            print(f">>> resp: {message_resp_json}")
-            print("Malformed JSON output model. Trying again.")
-            continue
+    print("Requesting target cell count from language model")
+    resp = post(
+        f"{lcc.nucleus_url}/{lcc.get_cell_count_endpoint}",
+        {
+            "study_metadata": study_metadata,
+            "paper_text": paper_text,
+            "session_id": -1, # todo(kenny)
+        },
+        headers = {"Authorization": f"Latch-SDK-Token {user_config.token}"}
+    )
+    try:
+        data = resp.json()['data']
+        target_cell_count = data['target_cell_count']
+        reasoning = data['reasoning']
+        print(reasoning)
+    except KeyError:
+        raise ValueError(f'Malformed response data :{data}')
 
     construct_counts_prompt = build_construct_counts_prompt(target_cell_count)
     instructions = build_construct_counts_instructions(paper_text, study_metadata)
