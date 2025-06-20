@@ -3,6 +3,7 @@ from textwrap import dedent
 from html import escape
 import json
 from typing import Literal
+from enum import Enum
 
 from anndata import AnnData
 
@@ -11,17 +12,16 @@ from latch_curate.constants import latch_curate_constants as lcc
 from latch_curate.config import user_config
 from latch_curate.tinyrequests import post
 
-controlled_metadata_keys = (
-         "latch_subject_id", 
-         "latch_condition",
-         "latch_disease", 
-         "latch_tissue",
-         "latch_sample_site",
-         "latch_sequencing_platform",
-         "latch_organism"
-         )
+class ControlledMetadataKeysEnum(str, Enum):
+    latch_subject_id           = "latch_subject_id"
+    latch_condition            = "latch_condition"
+    latch_disease              = "latch_disease"
+    latch_tissue               = "latch_tissue"
+    latch_sample_site          = "latch_sample_site"
+    latch_sequencing_platform  = "latch_sequencing_platform"
+    latch_organism             = "latch_organism"
 
-ControlledMetadataKeys = Literal[*controlled_metadata_keys]
+ControlledMetadataKeys = ControlledMetadataKeysEnum
 
 def build_metadata_report(responses: dict[ControlledMetadataKeys, dict]) -> str:
 
@@ -90,7 +90,7 @@ def harmonize_metadata(
     print(f"Harmonizing against sample_list from obs['latch_sample_id']: {sample_list}")
 
     response_dict = {}
-    for k in controlled_metadata_keys:
+    for k in [e.value for e in ControlledMetadataKeysEnum]:
         print(f"Requesting harmonized metadata from model for {k}")
         resp = post(
             f"{lcc.nucleus_url}/{lcc.get_harmonized_metadata_endpoint}",
