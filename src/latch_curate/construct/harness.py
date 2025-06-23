@@ -20,8 +20,40 @@ from latch_curate.utils import _df_to_html, write_html_report
 from latch_curate.construct.prompts import build_construct_counts_prompt, build_construct_counts_instructions, build_review_prompt, add_or_replace_validation_failure
 from latch_curate.config import user_config
 
+codex_config = {
+  "model": "o4-mini",
+  "provider": "openai",
+  "providers": {
+    "openai": {
+      "name": "OpenAI",
+      "baseURL": "https://nucleus.latch.bio/infer",
+      "envKey": "OPENAI_API_KEY"
+    }
+  }
+}
+
 OPENAI_SYSTEM_PROMPT_LEN = 2512
 OPENAI_MAX_PROMPT_LEN = 1048576
+
+def client_from_env():
+    host = os.environ.get("DOCKER_HOST")
+    if host is not None:
+        return docker.DockerClient(base_url=host.strip())
+
+    socket_paths = [
+        "/var/run/docker.sock",  # linux
+        os.path.expanduser(Path().home() / ".docker/run/docker.sock"),  # Docker Desktop on macOS newer versions
+        os.path.expanduser(Path().home() / "Library/Containers/com.docker.docker/Data/docker.sock"),  # Docker Desktop on macOS older versions
+    ]
+    for p in socket_paths:
+        if Path(p).exists():
+            os.environ["DOCKER_HOST"] = f"unix://{p}"
+            return docker.DockerClient(base_url=f"unix://{p}")
+    raise OSError(
+        "Cannot find a Docker socket. Checked:\n  " +
+        "\n  ".join(socket_paths) +
+        "\nEither start Docker or set DOCKER_HOST explicitly."
+    )
 
 def get_system_memory() -> int:
     pages = os.sysconf('SC_PHYS_PAGES')
@@ -205,6 +237,7 @@ def construct_counts(
         shutil.copy(src, workdir / src.name)
 
     instructions_path = workdir / "instructions.md"
+    config_path = workdir / "config.json"
     construct_counts_prompt_path = workdir / construct_counts_prompt_name
 
     paper_text = paper_text_path.read_text()
@@ -239,12 +272,13 @@ def construct_counts(
             " folder by removing unnecessary text, like references, links, etc."
         )
     instructions_path.write_text(instructions)
+    config_path.write_text(json.dumps(codex_config))
 
     for attempt in range(1, max_rounds + 1):
         construct_counts_prompt_path.write_text(construct_counts_prompt)
         print(f"\n=== Agential count matrix construction attempt {attempt}/{max_rounds} ===")
 
-        client = docker.from_env()
+        client = client_from_env()
         system_memory_bytes = get_system_memory()
         docker_mem_limit = int(system_memory_bytes * 0.8) // (1024 ** 3)
         print(f"{system_memory_bytes} bytes of system memory. Setting agent limit to {docker_mem_limit} GB.")
@@ -265,9 +299,10 @@ def construct_counts(
                     str(workdir.resolve()):  {"bind": "/workspace",      "mode": "rw"},
                     str(data_dir.resolve()): {"bind": "/workspace/data", "mode": "rw"},
                     str(instructions_path.resolve()): {"bind": "/root/.codex/instructions.md", "mode": "rw"},
+                    str(config_path.resolve()): {"bind": "/root/.codex/config.json", "mode": "rw"},
                 },
                 environment={
-                        "OPENAI_API_KEY": user_config.openai_api_key,
+                        "OPENAI_API_KEY": user_config.token,
                         "PATH": os.environ.get("PATH", ""),
                         "PYTHONUNBUFFERED": "1",
                 },
