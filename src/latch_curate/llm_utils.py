@@ -4,8 +4,14 @@ import json
 
 import openai
 from openai.types.chat import ChatCompletionMessageToolCall
+import tiktoken
 
 from latch_curate.config import user_config
+
+tiktoken_enc = tiktoken.get_encoding("cl100k_base")
+
+def get_token_count(text: str) -> int:
+    return len(tiktoken_enc.encode(text))
 
 def function_to_schema(func_tool: Callable) -> dict:
     assert func_tool.__name__
