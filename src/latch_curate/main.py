@@ -118,7 +118,7 @@ def check_download_files_exist() -> (Path, Path, Path):
     return supp_data_dir, paper_text_file, metadata_file
 
 
-@download.command("run")
+@download.command("review")
 def download_review():
     _, paper_text_path, metadata_file_path = check_download_files_exist()
 
