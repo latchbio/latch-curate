@@ -23,6 +23,7 @@ from latch_curate.lint.linter import lint_anndata
 from latch_curate.publish.queries import build_publish_queries
 from latch_curate.publish.email_utils import EmailRecipient, send_email_to_authors
 from latch_curate.utils import write_anndata
+from latch_curate.llm_utils import get_token_count
 
 StepwiseAction = Literal["run", "review"]
 stepwise_actions: list[StepwiseAction] = ["run", "review"]
@@ -64,58 +65,51 @@ def find_workdir_anndata(workdir: Path, name: str):
         raise ValueError(f"Unable to find suitable anndata in {workdir}")
     return matches[0]
 
-@main.command("download")
-@click.argument("action", type=click.Choice(stepwise_actions))
-@click.option("--gse-id", type=str)
-def download(action: list[StepwiseAction], gse_id: str):
-    if action == "run":
 
-        subseries_ids = get_subseries_ids(gse_id)
-        if len(subseries_ids) != 0:
-            click.secho(
-                    f"Detected SuperSeries   → {gse_id} contains {subseries_ids}"
-                    "Proceed by constructing a directory and running the tool on each individual accession.",
-                fg="red")
-            return
-
-        srp_cache: dict[str, pd.DataFrame] = {}
-        click.secho(f"[download/run] Processing {gse_id}", bold=True)
-
-        download_workdir.mkdir(exist_ok=True)
-        construct_study_metadata(
-            gse_id,
-            download_workdir / lcc.metadata_file_name,
-            srp_df_cache=srp_cache,
-        )
-        click.secho("  ↳ metadata ok", fg="green")
-
-        download_gse_supps(
-            gse_id,
-            download_workdir / lcc.supp_data_dir_name,
-        )
-        click.secho("  ↳ supp files ok", fg="green")
-
-        (download_workdir / lcc.external_id_file_name).write_text(gse_id)
-
-        click.echo(
-            f"[download/run] IMPORTANT: paste {gse_id} paper text "
-            f"into {download_workdir / lcc.paper_text_file_name}"
-        )
-        click.echo(
-            f"[download/run] IMPORTANT: paste {gse_id} paper URL "
-            f"into {download_workdir / lcc.paper_url_file_name}"
-        )
-
-    else:
-        raise ValueError(f"Invalid value {action}. Choose from {stepwise_actions}")
-
-
-@main.group("construct-counts")
-def construct_counts():
+@main.group("download")
+def download():
     ...
 
+@download.command("run")
+@click.option("--gse-id", type=str)
+def download_run(gse_id: str):
+    subseries_ids = get_subseries_ids(gse_id)
+    if len(subseries_ids) != 0:
+        click.secho(
+                f"Detected SuperSeries   → {gse_id} contains {subseries_ids}"
+                "Proceed by constructing a directory and running the tool on each individual accession.",
+            fg="red")
+        return
 
-def check_construct_counts_files_exist() -> (Path, Path, Path):
+    srp_cache: dict[str, pd.DataFrame] = {}
+    click.secho(f"[download/run] Processing {gse_id}", bold=True)
+
+    download_workdir.mkdir(exist_ok=True)
+    construct_study_metadata(
+        gse_id,
+        download_workdir / lcc.metadata_file_name,
+        srp_df_cache=srp_cache,
+    )
+    click.secho("  ↳ metadata ok", fg="green")
+
+    download_gse_supps(
+        gse_id,
+        download_workdir / lcc.supp_data_dir_name,
+    )
+    click.secho("  ↳ supp files ok", fg="green")
+
+    (download_workdir / lcc.external_id_file_name).write_text(gse_id)
+
+    click.echo(
+        f"[download/run] IMPORTANT: paste {gse_id} paper text "
+        f"into {download_workdir / lcc.paper_text_file_name}"
+    )
+    click.echo(
+        f"[download/run] IMPORTANT: paste {gse_id} paper URL "
+        f"into {download_workdir / lcc.paper_url_file_name}"
+    )
+
+def check_download_files_exist() -> (Path, Path, Path):
     supp_data_dir = download_workdir / lcc.supp_data_dir_name
     paper_text_file = download_workdir / lcc.paper_text_file_name
     metadata_file = download_workdir / lcc.metadata_file_name
@@ -124,10 +118,28 @@ def check_construct_counts_files_exist() -> (Path, Path, Path):
     return supp_data_dir, paper_text_file, metadata_file
 
 
+@download.command("run")
+def download_review():
+    _, paper_text_path, metadata_file_path = check_download_files_exist()
+
+    token_count = 0
+    for path in {paper_text_path, metadata_file_path}:
+        token_count += get_token_count(path.read_text())
+    # todo(kenny): account for offset from prompt, system things, etc.
+    print(f"{token_count} tokens in paper text and study metadata.")
+    if token_count >= 200_000:
+        raise ValueError(f"{token_count} exceeds 200K upper bound on context",
+                         "window. Remove text in these files and run this",
+                         "command again to verify you are below this limit.")
+
+@main.group("construct-counts")
+def construct_counts():
+    ...
+
+
 @construct_counts.command(name="run")
 def construct_counts_run():
-
-    supp_data_dir, paper_text_file, metadata_file = check_construct_counts_files_exist()
+    supp_data_dir, paper_text_file, metadata_file = check_download_files_exist()
     print("[construct-counts/run] Starting count matrix construction")
     _construct_counts(
         supp_data_dir,
@@ -138,7 +150,7 @@ def construct_counts_run():
     assert (construct_counts_workdir / lcc.construct_counts_adata_name).exists()
 
 def construct_counts_review(query: str):
-    _, paper_text_file, metadata_file = check_construct_counts_files_exist()
+    _, paper_text_file, metadata_file = check_download_files_exist()
     print("[construct-counts/review] Starting review of construction context")
     review_counts(
         paper_text_file,

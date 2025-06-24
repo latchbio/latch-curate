@@ -13,11 +13,10 @@ from textwrap import dedent, shorten
 import json
 
 from latch_curate.tinyrequests import post
-from latch_curate.llm_utils import prompt_model
 from latch_curate.constants import latch_curate_constants as lcc
 from latch_curate.construct.validate import validate_counts_object
 from latch_curate.utils import _df_to_html, write_html_report
-from latch_curate.construct.prompts import build_construct_counts_prompt, build_construct_counts_instructions, build_review_prompt, add_or_replace_validation_failure
+from latch_curate.construct.prompts import build_construct_counts_prompt, build_construct_counts_instructions, add_or_replace_validation_failure
 from latch_curate.config import user_config
 
 codex_config = {
@@ -273,7 +272,7 @@ def construct_counts(
 
     for attempt in range(1, max_rounds + 1):
 
-        construct_counts_prompt_name = ".prompt.{attempt}.md"
+        construct_counts_prompt_name = f".prompt.{attempt}.md"
         construct_counts_prompt_path = workdir / construct_counts_prompt_name
         construct_counts_prompt_path.write_text(construct_counts_prompt)
 
@@ -348,37 +347,37 @@ def construct_counts(
 
 agent_log_pattern = re.compile(r"codex_round(\d+)\.log$")
 
-def review_counts(
-    paper_text_path: Path,
-    study_metadata_path: Path,
-    workdir: Path,
-    query: str,
-) -> Path:
-
-    driver_script = workdir / "build_anndata.py"
-    agent_prompt = workdir / construct_counts_prompt_name
-
-    assert driver_script.exists()
-    assert agent_prompt.exists()
-
-    last_logs_path = max(
-        (p for p in workdir.glob("codex_round*.log") if agent_log_pattern.search(p.name)),
-        key=lambda p: int(agent_log_pattern.search(p.name).group(1)),
-        default=None,
-    )
-
-    if last_logs_path:
-        print("Using latest agent log:", last_logs_path, "round",
-              agent_log_pattern.search(last_logs_path.name).group(1))
-    else:
-        print("no codex_round logs yet")
-
-    review_prompt = build_review_prompt(paper_text_path.read_text(),
-                        study_metadata_path.read_text,
-                        driver_script.read_text(),
-                        agent_prompt.read_text(),
-                        last_logs_path.read_text(),
-                        query,
-                        )
-
-    print(prompt_model([{"role": "user", "content": review_prompt}])[0])
+# def review_counts(
+#     paper_text_path: Path,
+#     study_metadata_path: Path,
+#     workdir: Path,
+#     query: str,
+# ) -> Path:
+# 
+#     driver_script = workdir / "build_anndata.py"
+#     agent_prompt = workdir / construct_counts_prompt_name
+# 
+#     assert driver_script.exists()
+#     assert agent_prompt.exists()
+# 
+#     last_logs_path = max(
+#         (p for p in workdir.glob("codex_round*.log") if agent_log_pattern.search(p.name)),
+#         key=lambda p: int(agent_log_pattern.search(p.name).group(1)),
+#         default=None,
+#     )
+# 
+#     if last_logs_path:
+#         print("Using latest agent log:", last_logs_path, "round",
+#               agent_log_pattern.search(last_logs_path.name).group(1))
+#     else:
+#         print("no codex_round logs yet")
+# 
+#     review_prompt = build_review_prompt(paper_text_path.read_text(),
+#                         study_metadata_path.read_text,
+#                         driver_script.read_text(),
+#                         agent_prompt.read_text(),
+#                         last_logs_path.read_text(),
+#                         query,
+#                         )
+# 
+#     print(prompt_model([{"role": "user", "content": review_prompt}])[0])
