@@ -148,8 +148,7 @@ def download_review():
         raise click.ClickException(
             f"Total ({total_tokens:,}) exceeds limit ({threshold:,}).\n"
             "    • Consider truncating your input files,\n"
-            "    • Summarizing sections before sending,\n"
-            "    • Or using a model with a larger context window."
+            "    • Removing repetitive or uninformative sections (eg.  citations)\n"
         )
 
     click.secho("All good — total tokens within limit.", fg="green")
