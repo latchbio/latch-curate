@@ -121,16 +121,38 @@ def check_download_files_exist() -> (Path, Path, Path):
 @download.command("review")
 def download_review():
     _, paper_text_path, metadata_file_path = check_download_files_exist()
+    paths = [paper_text_path, metadata_file_path]
 
-    token_count = 0
-    for path in {paper_text_path, metadata_file_path}:
-        token_count += get_token_count(path.read_text())
-    # todo(kenny): account for offset from prompt, system things, etc.
-    print(f"{token_count} tokens in paper text and study metadata.")
-    if token_count >= 200_000:
-        raise ValueError(f"{token_count} exceeds 200K upper bound on context",
-                         "window. Remove text in these files and run this",
-                         "command again to verify you are below this limit.")
+    file_counts = {}
+    total_file_tokens = 0
+    for p in paths:
+        count = get_token_count(p.read_text())
+        file_counts[p.name] = count
+        total_file_tokens += count
+
+    # todo(kenny): estimate for o4-mini
+    overhead_tokens = 600
+
+    total_tokens = total_file_tokens + overhead_tokens
+
+    threshold = 200_000
+    click.echo(f"Threshold: {threshold} tokens\n")
+
+    click.echo("File token counts:")
+    for name, cnt in file_counts.items():
+        click.echo(f"  • {name:<20} {cnt:>6,} tokens")
+    click.echo(f"\nEstimated prompt/system overhead: {overhead_tokens:,} tokens")
+    click.echo(f"\n>>> TOTAL TOKENS: {total_tokens:,}\n")
+
+    if total_tokens > threshold:
+        raise click.ClickException(
+            f"Total ({total_tokens:,}) exceeds limit ({threshold:,}).\n"
+            "    • Consider truncating your input files,\n"
+            "    • Summarizing sections before sending,\n"
+            "    • Or using a model with a larger context window."
+        )
+
+    click.secho("All good — total tokens within limit.", fg="green")
 
 @main.group("construct-counts")
 def construct_counts():
