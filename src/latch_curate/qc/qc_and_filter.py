@@ -107,6 +107,9 @@ def qc_and_filter(
     paper_text_path: Path,
     workdir: Path
 ):
+    assert 'latch_sample_id' in adata.obs.columns
+    adata.obs['latch_sample_id'] = adata.obs['latch_sample_id'].astype('category')
+
     workdir.mkdir(exist_ok=True)
 
     print("Calculating qc metrics: mt‑genes, n_genes_by_counts, total_counts, pct_counts_mt")
