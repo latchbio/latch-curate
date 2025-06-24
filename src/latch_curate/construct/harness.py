@@ -245,7 +245,8 @@ def construct_counts(
         {
             "study_metadata": study_metadata,
             "paper_text": paper_text,
-            "session_id": -1, # todo(kenny)
+            "metadata": json.dumps({"step": "construct", "project": workdir.name}),
+            "seession_id": -1
         },
         headers = {"Authorization": f"Latch-SDK-Token {user_config.token}"}
     )

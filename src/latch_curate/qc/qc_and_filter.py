@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 from pathlib import Path
 from textwrap import dedent
+import json
 
 import pandas as pd
 import scanpy as sc
@@ -127,7 +128,8 @@ def qc_and_filter(
             "study_metadata": study_metadata,
             "paper_text": paper_text,
             "quantile_table": df_to_str(quantile_table),
-            "session_id": -1, # todo(kenny)
+            "metadata": json.dumps({"step": "qc", "project": workdir.name}),
+            "session_id": -1
         },
         headers = {"Authorization": f"Latch-SDK-Token {user_config.token}"}
     )

@@ -2,7 +2,6 @@ from pathlib import Path
 from textwrap import dedent
 from html import escape
 import json
-from typing import Literal
 from enum import Enum
 
 from anndata import AnnData
@@ -99,7 +98,8 @@ def harmonize_metadata(
                 "paper_text": paper_text,
                 "sample_list": json.dumps(sample_list),
                 "metadata_key": k,
-                "session_id": -1, # todo(kenny)
+                "metadata": json.dumps({"step": "harmonize-metadata", "project": workdir.name}),
+                "session_id": -1
             },
             headers = {"Authorization": f"Latch-SDK-Token {user_config.token}"}
         )
