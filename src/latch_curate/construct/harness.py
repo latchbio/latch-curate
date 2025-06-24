@@ -219,8 +219,6 @@ def parse_codex_line(raw: str) -> AgentStep | None:
 
     return AgentStep(id=rec.get("id") or rec.get("call_id") or "<no-id>", kind=kind, subtype=subtype, call_id=call_id, meta=meta)
 
-construct_counts_prompt_name = "construct_counts_prompt.md"
-
 def construct_counts(
     data_dir: Path,
     paper_text_path: Path,
@@ -238,7 +236,6 @@ def construct_counts(
 
     instructions_path = workdir / "instructions.md"
     config_path = workdir / "config.json"
-    construct_counts_prompt_path = workdir / construct_counts_prompt_name
 
     paper_text = paper_text_path.read_text()
     study_metadata = study_metadata_path.read_text()
@@ -275,14 +272,18 @@ def construct_counts(
     config_path.write_text(json.dumps(codex_config))
 
     for attempt in range(1, max_rounds + 1):
+
+        construct_counts_prompt_name = ".prompt.{attempt}.md"
+        construct_counts_prompt_path = workdir / construct_counts_prompt_name
         construct_counts_prompt_path.write_text(construct_counts_prompt)
+
         print(f"\n=== Agential count matrix construction attempt {attempt}/{max_rounds} ===")
 
         client = client_from_env()
         system_memory_bytes = get_system_memory()
         docker_mem_limit = int(system_memory_bytes * 0.8) // (1024 ** 3)
         print(f"{system_memory_bytes} bytes of system memory. Setting agent limit to {docker_mem_limit} GB.")
-        log_path = workdir / f"codex_round{attempt}.log"
+        log_path = workdir / f".agent.{attempt}.log"
         with log_path.open("w") as log_f:
             codex_cmd = (
                 f'codex --model {model} --approval-mode full-auto --quiet "$(cat {construct_counts_prompt_path.name})"'
