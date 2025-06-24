@@ -13,7 +13,7 @@ from latch_cli.services.cp.main import cp as latch_cp
 
 from latch_curate.constants import latch_curate_constants as lcc
 from latch_curate.download import construct_study_metadata, download_gse_supps, get_subseries_ids
-from latch_curate.construct import construct_counts as _construct_counts, review_counts
+from latch_curate.construct import construct_counts as _construct_counts
 from latch_curate.qc import qc_and_filter
 from latch_curate.transform import transform_counts
 from latch_curate.cell_typing import type_cells as _type_cells
@@ -149,16 +149,16 @@ def construct_counts_run():
     )
     assert (construct_counts_workdir / lcc.construct_counts_adata_name).exists()
 
-def construct_counts_review(query: str):
-    _, paper_text_file, metadata_file = check_download_files_exist()
-    print("[construct-counts/review] Starting review of construction context")
-    review_counts(
-        paper_text_file,
-        metadata_file,
-        construct_counts_workdir,
-        query,
-    )
-    return
+# def construct_counts_review(query: str):
+#     _, paper_text_file, metadata_file = check_download_files_exist()
+#     print("[construct-counts/review] Starting review of construction context")
+#     review_counts(
+#         paper_text_file,
+#         metadata_file,
+#         construct_counts_workdir,
+#         query,
+#     )
+#     return
 
 @main.command("qc")
 @click.argument("action", type=click.Choice(stepwise_actions))
