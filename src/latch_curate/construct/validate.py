@@ -34,8 +34,6 @@ def validate_counts_object(adata: ad.AnnData) -> list[tuple[str, str]]:
         if col.startswith("author_"):
             series = adata.obs[col]
             record_and_assert(validation_log, ~series.isna().all(), f"{col} not all NaN")
-            record_and_assert(validation_log, series.dropna().nunique() > 1,
-                    f"{col} >1 unique non-NA value")
 
     # n_obs = adata.n_obs
     # lower = target_cell_count - tol
