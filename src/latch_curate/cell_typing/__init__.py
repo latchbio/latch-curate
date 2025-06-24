@@ -83,7 +83,8 @@ def type_cells(
             "marker_genes": json.dumps(marker_genes),
             "de_json": json.dumps(de_json),
             "cell_typing_vocab": json.dumps(cell_typing_vocab),
-            "metadata": json.dumps({"step": "type-cells", "project": workdir.name}),
+            "metadata": json.dumps({"step": "type-cells", "project":
+                                    workdir.resolve().parent.name}),
             "session_id": -1
         },
         headers = {"Authorization": f"Latch-SDK-Token {user_config.token}"}

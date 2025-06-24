@@ -98,7 +98,8 @@ def harmonize_metadata(
                 "paper_text": paper_text,
                 "sample_list": json.dumps(sample_list),
                 "metadata_key": k,
-                "metadata": json.dumps({"step": "harmonize-metadata", "project": workdir.name}),
+                "metadata": json.dumps({"step": "harmonize-metadata",
+                                        "project": workdir.resolve().parent.name}),
                 "session_id": -1
             },
             headers = {"Authorization": f"Latch-SDK-Token {user_config.token}"}

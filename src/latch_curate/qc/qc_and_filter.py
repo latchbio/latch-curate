@@ -128,7 +128,8 @@ def qc_and_filter(
             "study_metadata": study_metadata,
             "paper_text": paper_text,
             "quantile_table": df_to_str(quantile_table),
-            "metadata": json.dumps({"step": "qc", "project": workdir.name}),
+            "metadata": json.dumps({"step": "qc", "project":
+                                    workdir.resolve().parent.name}),
             "session_id": -1
         },
         headers = {"Authorization": f"Latch-SDK-Token {user_config.token}"}
