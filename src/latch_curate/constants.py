@@ -29,6 +29,7 @@ class LatchCurateConstants:
     qc_adata_name: str = "qc.h5ad"
     qc_workdir_name: str = "qc"
     qc_report_name: str = "qc_report.html"
+    qc_params_name: str = "qc_params.json"
 
     transform_adata_name: str = "transform.h5ad"
     transform_workdir_name: str = "transform"

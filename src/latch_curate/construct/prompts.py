@@ -123,5 +123,5 @@ def build_construct_counts_prompt(target_cell_count: int):
     downsample the raw data.  It must load every barcode and every nonzero
     count value.
 
-    After you finish writing build_anndata.py, execute it with "/Users/kenny/latch/latch-curate/construct/.venv/bin/python3 build_anndata.py" and do not exit until the file output.h5ad exists.
+    After you finish writing build_anndata.py, execute it with "python build_anndata.py" and do not exit until the file output.h5ad exists.
     """)
