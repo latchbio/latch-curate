@@ -94,7 +94,7 @@ def build_adaptive_threshold_prompt(
             – usually only an UPPER bound; set lower bound to null if unused
 
         <quantile_table>
-        {quantile_table.to_csv(sep='\t')}
+        {quantile_table.to_csv()}
         </quantile_table>
 
         Rules
