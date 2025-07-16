@@ -6,13 +6,36 @@ import pandas as pd
 import scipy.sparse as sp
 from anndata import AnnData
 import json
+import re
+
+# todo(kenny): pull out
+ENSEMBL_REGEX = re.compile(r"ENS[A-Z0-9]{0,5}G\d{11}(?:\.\d+)?$")
+
 
 # suppress pandas dtype warnings
 warnings.simplefilter("ignore", pd.errors.DtypeWarning)
 
-ensembl_map = {}
+ensembl_map: dict[str, str] = {}
 with open('ensembl_map.json') as f:
     ensembl_map = json.load(f)
+
+def is_valid_ensembl(id_: str) -> bool:
+    """True if `id_` matches the Ensembl-gene pattern enforced by the validator."""
+    return ENSEMBL_REGEX.fullmatch(id_) is not None
+
+def ensembl_to_symbol(id_: str, mapping: dict[str, str] = ensembl_map) -> str | None:
+    """Return the gene symbol for a valid Ensembl ID, or None if not found/invalid."""
+    if not is_valid_ensembl(id_):
+        return None
+    if "_reverse_map" not in ensembl_to_symbol.__dict__:
+        ensembl_to_symbol._reverse_map = {v: k for k, v in mapping.items()}
+    return ensembl_to_symbol._reverse_map.get(id_)
+
+
+def symbol_to_ensembl(sym: str, mapping: dict[str, str] = ensembl_map) -> str | None:
+    """Return the Ensembl ID for a gene symbol, or None if unknown/invalid."""
+    return mapping.get(sym.upper())
+
 
 def convert_and_swap_symbol_index(
     adata: AnnData,
