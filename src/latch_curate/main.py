@@ -13,7 +13,7 @@ from latch_cli.services.cp.main import cp as latch_cp
 
 from latch_curate.constants import latch_curate_constants as lcc
 from latch_curate.download import construct_study_metadata, download_gse_supps, get_subseries_ids
-from latch_curate.construct import construct_counts as _construct_counts
+from latch_curate.construct import construct_counts_chat as _construct_counts_chat, construct_counts as _construct_counts
 from latch_curate.qc import qc_and_filter
 from latch_curate.transform import transform_counts
 from latch_curate.cell_typing import type_cells as _type_cells
@@ -167,6 +167,17 @@ def construct_counts_run():
         paper_text_file,
         metadata_file,
         construct_counts_workdir
+    )
+    assert (construct_counts_workdir / lcc.construct_counts_adata_name).exists()
+
+@construct_counts.command(name="chat")
+def construct_counts_chat():
+    supp_data_dir, paper_text_file, metadata_file = check_download_files_exist()
+    print("[construct-counts/run] Starting count matrix construction")
+    _construct_counts_chat(
+        paper_text_file,
+        metadata_file,
+        construct_counts_workdir,
     )
     assert (construct_counts_workdir / lcc.construct_counts_adata_name).exists()
 

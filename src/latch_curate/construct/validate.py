@@ -17,8 +17,12 @@ def validate_counts_object(adata: ad.AnnData) -> list[tuple[str, str]]:
     record_and_assert(validation_log, 'latch_sample_id' in adata.obs, "obs does not contain latch_sample_id")
 
     matches = list(map(bool, map(ensembl_pattern.match, adata.var_names)))
-    record_and_assert(validation_log, all(matches),
-                      f"Not all var index are Ensembl IDs matching {ensembl_pattern}. Ex: check index {matches.index(False)}")
+
+    ex_index = None
+    all_ensembl = all(matches)
+    if not all_ensembl:
+        ex_index = matches.index(False)
+    record_and_assert(validation_log, all(matches), f"Not all var index are Ensembl IDs matching {ensembl_pattern}. Ex: check index {ex_index}")
 
     record_and_assert(validation_log, 'gene_symbols' in adata.var.columns, "var contains gene_symbols")
     record_and_assert(validation_log, adata.var['gene_symbols'].is_unique, "gene_symbols unique")

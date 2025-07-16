@@ -2,8 +2,7 @@ import re
 from textwrap import dedent
 
 
-def build_review_prompt(paper_text: str, study_metadata: str, driver_script:
-                        str, agent_prompt: str, agent_logs: str, query: str):
+def build_chat_prompt(paper_text: str, study_metadata: str, driver_script: str, agent_prompt: str, agent_logs: str):
     return f"""
     <paper_text>
     {paper_text}
@@ -25,10 +24,13 @@ def build_review_prompt(paper_text: str, study_metadata: str, driver_script:
     {agent_logs}
     </agent_logs>
 
-    Use all of the context above to answer the following question about past agent
-    behavior:
+    You are provided context from a previously executed agentic workflow:
 
-    {query}
+    - <study_metadata> + <paper_text>: information about paper + study placed into context during agentic workflow
+    - <agent_prompt>: agent task instructions 
+    - <agent_logs>: logs from tool use, reasoning, etc. following the prompt
+
+    Summarize the decisions the agent made, especially any reasons (eg. errors) it was unable to complete the task.
     """
 
 def build_construct_counts_instructions(paper_text: str, study_metadata: str):
