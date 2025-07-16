@@ -277,7 +277,7 @@ def construct_counts(
         construct_counts_prompt_path = workdir / construct_counts_prompt_name
         construct_counts_prompt_path.write_text(construct_counts_prompt)
 
-        print(f"\n=== Agential count matrix construction attempt {attempt}/{max_rounds} ===")
+        print(f"\n=== Agentic count matrix construction attempt {attempt}/{max_rounds} ===")
 
         client = client_from_env()
         system_memory_bytes = get_system_memory()
