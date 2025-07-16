@@ -179,18 +179,6 @@ def construct_counts_chat():
         metadata_file,
         construct_counts_workdir,
     )
-    assert (construct_counts_workdir / lcc.construct_counts_adata_name).exists()
-
-# def construct_counts_review(query: str):
-#     _, paper_text_file, metadata_file = check_download_files_exist()
-#     print("[construct-counts/review] Starting review of construction context")
-#     review_counts(
-#         paper_text_file,
-#         metadata_file,
-#         construct_counts_workdir,
-#         query,
-#     )
-#     return
 
 @main.command("qc")
 @click.argument("action", type=click.Choice(stepwise_actions))
