@@ -38,6 +38,7 @@ class LatchCurateConstants:
     type_cells_adata_name: str = "type_cells.h5ad"
     type_cells_workdir_name: str = "type_cells"
     type_cells_report_name: str = "type_cells.html"
+    type_cells_metadata_name: str = "type_cells_metadata.json"
 
     harmonize_metadata_adata_name: str = "harmonize_metadata.h5ad"
     harmonize_metadata_workdir_name: str = "harmonize_metadata"

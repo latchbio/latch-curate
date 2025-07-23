@@ -224,10 +224,10 @@ def qc_and_filter(
     workdir: Path,
     use_params: bool
 ):
-    params_file = (workdir / lcc.qc_params_name)
+    params_path = workdir / lcc.qc_params_name
     if use_params:
-        assert params_file.exists(), "Missing parameters file"
-        with open(params_file) as f:
+        assert params_path.exists(), f"Missing parameters file: {params_path}"
+        with open(params_path) as f:
             params = json.load(f)
 
     assert 'latch_sample_id' in adata.obs.columns
@@ -329,7 +329,7 @@ def qc_and_filter(
                 "fixed": {"min_genes": min_genes, "max_counts": max_counts, "max_pct_mt": max_pct_mt},
                 "adaptive": interval_data
         }
-        with open(workdir / lcc.qc_params_name, "w") as f:
+        with open(params_path, "w") as f:
             json.dump(param_data, f)
-        print(f"QC parameters written to {workdir / lcc.qc_params_name}")
+        print(f"QC parameters written to {params_path}")
     print(f"QC pipeline finished successfully – final cell count: {adata.n_obs}")

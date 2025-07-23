@@ -224,7 +224,8 @@ def transform(action: list[StepwiseAction]):
 
 @main.command("type-cells")
 @click.argument("action", type=click.Choice(stepwise_actions))
-def type_cells(action: list[StepwiseAction]):
+@click.option("--use-metadata", is_flag=True, default=False)
+def type_cells(action: list[StepwiseAction], use_metadata: bool):
 
     if action == "run":
         anndata_file = find_workdir_anndata(transform_workdir, lcc.transform_adata_name)
@@ -232,7 +233,7 @@ def type_cells(action: list[StepwiseAction]):
         print("[type-cells/run] Reading AnnData")
         adata = sc.read_h5ad(anndata_file)
         print("[type-cells/run] Starting cell typing workflow")
-        _type_cells(adata, type_cells_workdir)
+        _type_cells(adata, type_cells_workdir, use_metadata)
 
     elif action == "validate":
         assert (type_cells_workdir / lcc.type_cells_adata_name).exists()
@@ -365,7 +366,7 @@ def publish_email():
     <p>{greeting}</p>
 
     <p>The {cell_count} single cells associated with <strong>{paper_title}</strong> have been
-    automatically curated with an agential LLM framework and uploaded to
+    automatically curated with an agentic LLM framework and uploaded to
     <a href="https://console.latch.bio/datasets" target="_blank">LatchBio</a>.<p>
 
     <p>A report outlining e.g. quality control, cell typing,

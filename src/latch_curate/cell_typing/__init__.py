@@ -70,31 +70,42 @@ def _build_report_html(ann: dict, reasoning_md: str, dotplot_fig: plt.Figure,
 def type_cells(
     adata: AnnData,
     workdir: Path,
+    use_metadata: bool
 ):
+
+    metadata_path = workdir / lcc.type_cells_metadata_name
+    if use_metadata:
+        assert metadata_path.exists(), f"Missing metadata file: {metadata_path}"
+        with open(metadata_path) as f:
+            annotations = json.load(f)
+
     workdir.mkdir(exist_ok=True)
 
-    print("starting differential expression")
-    de_json = construct_diff_exp_json(adata)
+    if use_metadata:
+        reasoning = f"Annotations read from {metadata_path}"
+    else:
+        print("starting differential expression")
+        de_json = construct_diff_exp_json(adata)
 
-    print("Requesting cell types from model")
-    resp = post(
-        f"{lcc.nucleus_url}/{lcc.get_cell_types_endpoint}",
-        {
-            "marker_genes": json.dumps(marker_genes),
-            "de_json": json.dumps(de_json),
-            "cell_typing_vocab": json.dumps(cell_typing_vocab),
-            "metadata": json.dumps({"step": "type-cells", "project":
-                                    workdir.resolve().parent.name}),
-            "session_id": -1
-        },
-        headers = {"Authorization": f"Latch-SDK-Token {user_config.token}"}
-    )
-    try:
-        data = resp.json()['data']
-        annotations = data['annotations']
-        reasoning = data['reasoning']
-    except KeyError:
-        raise ValueError(f'Malformed response data: {resp.json()}')
+        print("Requesting cell types from model")
+        resp = post(
+            f"{lcc.nucleus_url}/{lcc.get_cell_types_endpoint}",
+            {
+                "marker_genes": json.dumps(marker_genes),
+                "de_json": json.dumps(de_json),
+                "cell_typing_vocab": json.dumps(cell_typing_vocab),
+                "metadata": json.dumps({"step": "type-cells", "project":
+                                        workdir.resolve().parent.name}),
+                "session_id": -1
+            },
+            headers = {"Authorization": f"Latch-SDK-Token {user_config.token}"}
+        )
+        try:
+            data = resp.json()['data']
+            annotations = data['annotations']
+            reasoning = data['reasoning']
+        except KeyError:
+            raise ValueError(f'Malformed response data: {resp.json()}')
 
     print("mapping annotations onto AnnData")
     adata.obs["latch_cell_type_lvl_1"] = adata.obs[cluster_key].astype(str).map(annotations)
@@ -133,7 +144,12 @@ def type_cells(
     print("finished UMAP")
 
     html = _build_report_html(annotations, reasoning, dotplot_fig, umap_cell_type_fig, umap_leiden_fig)
-
     write_html_report(html, workdir, lcc.type_cells_report_name)
+
+    if not use_metadata:
+        with open(metadata_path, "w") as f:
+            json.dump(annotations, f)
+        print(f"Cell type metadata written to {metadata_path}")
+
     write_anndata(adata, workdir, lcc.type_cells_adata_name)
     print("cell-typing pipeline complete")
