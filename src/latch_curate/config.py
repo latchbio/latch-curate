@@ -59,4 +59,10 @@ class UserConfig:
         assert key_file.exists()
         return key_file.read_text().strip()
 
+    @property
+    def metadata_schema_path(self) -> Path:
+        schema_path = self.root / latch_curate_constants.metadata_schema_path
+        assert schema_path.exists()
+        return schema_path
+
 user_config = UserConfig()

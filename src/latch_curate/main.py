@@ -242,7 +242,8 @@ def type_cells(action: list[StepwiseAction], use_metadata: bool):
 
 @main.command("harmonize-metadata")
 @click.argument("action", type=click.Choice(stepwise_actions))
-def harmonize_metadata(action: list[StepwiseAction]):
+@click.option("--use-metadata", is_flag=True, default=False)
+def harmonize_metadata(action: list[StepwiseAction], use_metadata: bool):
 
     if action == "run":
         anndata_file = find_workdir_anndata(type_cells_workdir, lcc.type_cells_adata_name)
@@ -255,7 +256,7 @@ def harmonize_metadata(action: list[StepwiseAction]):
         print("[harmonize-metadata/run] Reading AnnData")
         adata = sc.read_h5ad(anndata_file)
         print("[harmonize-metadata/run] Starting metadata harmonization workflow")
-        _harmonize_metadata(adata, metadata_file, paper_text_file, harmonize_metadata_workdir)
+        _harmonize_metadata(adata, metadata_file, paper_text_file, harmonize_metadata_workdir, use_metadata)
 
     elif action == "validate":
         assert (harmonize_metadata_workdir / lcc.harmonize_metadata_adata_name).exists()

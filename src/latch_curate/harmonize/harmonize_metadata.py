@@ -2,27 +2,18 @@ from pathlib import Path
 from textwrap import dedent
 from html import escape
 import json
-from enum import Enum
 
 from anndata import AnnData
 
 from latch_curate.utils import write_html_report, write_anndata
 from latch_curate.constants import latch_curate_constants as lcc
 from latch_curate.config import user_config
+from latch_curate.harmonize.schema import parse_metadata_yaml, var_to_json
 from latch_curate.tinyrequests import post
 
-class ControlledMetadataKeysEnum(str, Enum):
-    latch_subject_id           = "latch_subject_id"
-    latch_condition            = "latch_condition"
-    latch_disease              = "latch_disease"
-    latch_tissue               = "latch_tissue"
-    latch_sample_site          = "latch_sample_site"
-    latch_sequencing_platform  = "latch_sequencing_platform"
-    latch_organism             = "latch_organism"
+annotation_dict_type = dict[str, [dict[str, str], str]]
 
-ControlledMetadataKeys = ControlledMetadataKeysEnum
-
-def build_metadata_report(responses: dict[ControlledMetadataKeys, dict]) -> str:
+def build_metadata_report(responses: annotation_dict_type) -> str:
 
     title = "Metadata Harmonization Report"
 
@@ -80,46 +71,60 @@ def harmonize_metadata(
     metadata_file: Path,
     paper_text_file: Path,
     workdir: Path,
+    use_metadata: bool,
 ):
     workdir.mkdir(exist_ok=True)
+    cache_path = workdir / lcc.harmonize_metadata_metadata_name
 
-    study_metadata = metadata_file.read_text()
-    paper_text = paper_text_file.read_text()
-    sample_list = list(set(adata.obs['latch_sample_id']))
-    print(f"Harmonizing against sample_list from obs['latch_sample_id']: {sample_list}")
-
-    response_dict = {}
-    for k in [e.value for e in ControlledMetadataKeysEnum]:
-        print(f"Requesting harmonized metadata from model for {k}")
-        resp = post(
-            f"{lcc.nucleus_url}/{lcc.get_harmonized_metadata_endpoint}",
-            {
-                "study_metadata": study_metadata,
-                "paper_text": paper_text,
-                "sample_list": json.dumps(sample_list),
-                "metadata_key": k,
-                "metadata": json.dumps({"step": "harmonize-metadata",
-                                        "project": workdir.resolve().parent.name}),
-                "session_id": -1
-            },
-            headers = {"Authorization": f"Latch-SDK-Token {user_config.token}"}
-        )
+    annotation_dict: annotation_dict_type = {}
+    if use_metadata:
+        assert cache_path.exists(), f"Missing metadata file: {cache_path}"
+        with cache_path.open() as f:
+            annotation_dict = json.loads(f)
+    else:
         try:
-            print(resp.json())
-            data = resp.json()['data']
-            annotations = data['annotations']
-            reasoning = data['reasoning']
-        except KeyError:
-            raise ValueError(f'Malformed response data: {resp.json()}')
+            var_defs = parse_metadata_yaml(user_config.metadata_schema_path)
+        except Exception:
+            raise ValueError('Malformed variable schema file.')
 
-        response_dict[k] = {"annotations": annotations, "reasoning": reasoning}
+        study_metadata = metadata_file.read_text()
+        paper_text = paper_text_file.read_text()
+        sample_list = list(set(adata.obs['latch_sample_id']))
+        print(f"Harmonizing against sample_list from obs['latch_sample_id']: {sample_list}")
 
-    for k, v in response_dict.items():
+        for var_def in var_defs:
+            print(f"Requesting harmonized metadata from model for name: {var_def.name} ; description: {var_def.description}")
+            resp = post(
+                f"{lcc.nucleus_url}/{lcc.get_harmonized_metadata_endpoint}",
+                {
+                    "study_metadata": study_metadata,
+                    "paper_text": paper_text,
+                    "sample_list": sample_list,
+                    "var_def": var_to_json(var_def),
+                    "session_id": -1
+                },
+                headers = {"Authorization": f"Latch-SDK-Token {user_config.token}"}
+            )
+            try:
+                print(resp.json())
+                data = resp.json()['data']
+                annotations = data['annotations']
+                reasoning = data['reasoning']
+            except KeyError:
+                raise ValueError(f'Malformed response data: {resp.json()}')
+
+            annotation_dict[var_def.name] = {"annotations": annotations, "reasoning": reasoning}
+
+    for k, v in annotation_dict.items():
         try:
             adata.obs[k] = adata.obs["latch_sample_id"].map(v["annotations"])
         except Exception as e:
             raise ValueError(f"Issue mapping {k}; {e.with_traceback()}")
 
-    html = build_metadata_report(response_dict)
+    html = build_metadata_report(annotation_dict)
     write_html_report(html, workdir, lcc.harmonize_metadata_report_name)
+    if not use_metadata:
+        with open(cache_path, "w") as f:
+            json.dump(annotation_dict, f)
+        print(f"harmonization metadata written to {cache_path}")
     write_anndata(adata, workdir, lcc.harmonize_metadata_adata_name)
