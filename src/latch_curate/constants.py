@@ -8,6 +8,7 @@ class LatchCurateConstants:
 
     get_cell_count_endpoint = "get-cell-count"
     get_fixed_qc_thresholds_endpoint = "get-fixed-qc-thresholds"
+    get_adaptive_qc_thresholds_endpoint = "get-adaptive-qc-thresholds"
     get_cell_types_endpoint = "get-cell-types"
     get_harmonized_metadata_endpoint = "get-harmonized-metadata"
 
@@ -30,7 +31,7 @@ class LatchCurateConstants:
     qc_adata_name: str = "qc.h5ad"
     qc_workdir_name: str = "qc"
     qc_report_name: str = "qc_report.html"
-    qc_params_name: str = "qc_params.json"
+    qc_params_name: str = "qc_params.yaml"
 
     transform_adata_name: str = "transform.h5ad"
     transform_workdir_name: str = "transform"
@@ -39,12 +40,12 @@ class LatchCurateConstants:
     type_cells_adata_name: str = "type_cells.h5ad"
     type_cells_workdir_name: str = "type_cells"
     type_cells_report_name: str = "type_cells.html"
-    type_cells_metadata_name: str = "type_cells_metadata.json"
+    type_cells_metadata_name: str = "type_cells_metadata.yaml"
 
     harmonize_metadata_adata_name: str = "harmonize_metadata.h5ad"
     harmonize_metadata_workdir_name: str = "harmonize_metadata"
     harmonize_metadata_report_name: str = "harmonize_metadata.html"
-    harmonize_metadata_metadata_name: str = "harmonize_metadata_metadata.json"
+    harmonize_metadata_metadata_name: str = "harmonize_metadata_metadata.yaml"
 
     publish_workdir_name: str = "publish"
     publish_adata_name: str = "publish.h5ad"

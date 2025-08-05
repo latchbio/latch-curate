@@ -1,7 +1,7 @@
 from pathlib import Path
 from textwrap import dedent
 from html import escape
-import json
+import yaml
 
 from anndata import AnnData
 
@@ -80,7 +80,7 @@ def harmonize_metadata(
     if use_metadata:
         assert cache_path.exists(), f"Missing metadata file: {cache_path}"
         with cache_path.open() as f:
-            annotation_dict = json.loads(f)
+            annotation_dict = yaml.safe_load(f)
     else:
         try:
             var_defs = parse_metadata_yaml(user_config.metadata_schema_path)
@@ -125,6 +125,6 @@ def harmonize_metadata(
     write_html_report(html, workdir, lcc.harmonize_metadata_report_name)
     if not use_metadata:
         with open(cache_path, "w") as f:
-            json.dump(annotation_dict, f)
+            yaml.safe_dump(annotation_dict, f, default_flow_style=False, indent=2)
         print(f"harmonization metadata written to {cache_path}")
     write_anndata(adata, workdir, lcc.harmonize_metadata_adata_name)

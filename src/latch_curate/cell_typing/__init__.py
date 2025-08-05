@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 from textwrap import dedent
+import yaml
 
 import matplotlib.pyplot as plt
 import scanpy as sc
@@ -77,7 +78,7 @@ def type_cells(
     if use_metadata:
         assert metadata_path.exists(), f"Missing metadata file: {metadata_path}"
         with open(metadata_path) as f:
-            annotations = json.load(f)
+            annotations = yaml.safe_load(f)
 
     workdir.mkdir(exist_ok=True)
 
@@ -148,7 +149,7 @@ def type_cells(
 
     if not use_metadata:
         with open(metadata_path, "w") as f:
-            json.dump(annotations, f)
+            yaml.safe_dump(annotations, f, default_flow_style=False, indent=2)
         print(f"Cell type metadata written to {metadata_path}")
 
     write_anndata(adata, workdir, lcc.type_cells_adata_name)
