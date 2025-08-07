@@ -70,11 +70,22 @@ class UserConfig:
         workspace_data_path = self.root / "workspace"
         assert workspace_data_path.exists()
         try:
-            with open(workspace_data_path) as f:
-                workspace_data = json.load(f)
-                return workspace_data['workspace_id']
-        except Exception as e:
-            print(f"Error retrieving workspace ID: {e}")
-            raise
+            s = workspace_data_path.read_text().strip()
+            try:
+                ret = json.loads(s)
+                return ret["workspace_id"]
+            except (json.decoder.JSONDecodeError, TypeError):
+                if s == "":
+                    return ""
+                try:
+                    int(s)
+                except ValueError as e:
+                    raise ValueError(
+                        "Corrupted workspace configuration - please run `latch"
+                        " workspace` to reset."
+                    ) from e
+                return s
+        except FileNotFoundError:
+            return ""
 
 user_config = UserConfig()

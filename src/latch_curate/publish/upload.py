@@ -42,7 +42,7 @@ def upload_dataset(
         curator_id = click.prompt("Enter curator organization ID", type=int)
 
     if version is None:
-        default_version = "v1.0.0"
+        default_version = "v0.1.0"
         version = click.prompt("Enter dataset version", default=default_version)
 
     if curator_dataset_id is None:
@@ -67,8 +67,7 @@ def upload_dataset(
     print(f"Version: {version}")
     print(f"Dataset ID: {curator_dataset_id}")
 
-    display_name = publish_data['info']['display_name']
-    full_latch_dest = f'{latch_dest}/{display_name}'
+    full_latch_dest = f'{latch_dest}/{curator_dataset_id}'
 
     latch_cp([str(publish_workdir.resolve())], full_latch_dest, progress=Progress.tasks, verbose=False, expand_globs=False)
     res = get_node_data(full_latch_dest)

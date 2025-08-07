@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 from textwrap import dedent
 from pathlib import Path
 import re
@@ -11,7 +10,6 @@ from latch_curate.utils import write_html_report
 from latch_curate.constants import latch_curate_constants as lcc
 from latch_curate.config import user_config
 from latch_curate.lint.metadata_validator import validate_harmonized_metadata
-from latch_curate.publish.types import Tag
 
 
 def build_publish_data(paper_text: str, paper_url: str, gse_id: str, adata: AnnData, workdir: Path):
@@ -70,8 +68,6 @@ def build_publish_data(paper_text: str, paper_url: str, gse_id: str, adata: AnnD
         print(f"No metadata schema found at: {schema_path}")
         print("Skipping validation - ensure schema file exists before running publish")
 
-    display_name = f"orion-{gse_id}"
-
     build_info_file = workdir / lcc.publish_build_info_file_name
     with open(build_info_file, "w") as f:
         data = {
@@ -82,7 +78,6 @@ def build_publish_data(paper_text: str, paper_url: str, gse_id: str, adata: AnnD
                     "paper_url": paper_url,
                     "data_url": f"https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc={gse_id}",
                     "data_external_id": gse_id,
-                    "display_name": display_name,
                     "corresponding_author_names": corresponding_author_names,
                     "corresponding_author_emails": corresponding_author_emails,
                 },
