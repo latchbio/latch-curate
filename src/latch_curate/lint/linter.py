@@ -6,7 +6,7 @@ from latch_curate.lint.vocab.sample_site import validate_sample_site
 from latch_curate.lint.vocab.sequencing_platform import validate_efo
 from latch_curate.lint.vocab.uberon import validate_uberon
 from latch_curate.lint.vocab.common import unknown_val
-from latch_curate.publish.build import Tag
+from latch_curate.publish.types import Tag
 
 obs_names = [
     "latch_cell_type_lvl_1",

@@ -7,9 +7,6 @@ import scanpy as sc
 import click
 import pandas as pd
 
-from latch.ldata._transfer.node import get_node_data
-from latch.ldata._transfer.progress import Progress
-from latch_cli.services.cp.main import cp as latch_cp
 
 from latch_curate.constants import latch_curate_constants as lcc
 from latch_curate.download import construct_study_metadata, download_gse_supps, get_subseries_ids
@@ -18,9 +15,8 @@ from latch_curate.qc import qc_and_filter
 from latch_curate.transform import transform_counts
 from latch_curate.cell_typing import type_cells as _type_cells
 from latch_curate.harmonize import harmonize_metadata as _harmonize_metadata
-from latch_curate.publish.build import build_publish_report, build_publish_data
-from latch_curate.lint.linter import lint_anndata
-from latch_curate.publish.queries import build_publish_queries
+from latch_curate.publish.build import build_publish_data
+from latch_curate.publish.upload import upload_dataset
 from latch_curate.publish.email_utils import EmailRecipient, send_email_to_authors
 from latch_curate.utils import write_anndata
 from latch_curate.llm_utils import get_token_count
@@ -263,7 +259,12 @@ def harmonize_metadata(action: list[StepwiseAction], use_metadata: bool):
     else:
         raise ValueError(f"Invalid value {action}. Choose from {stepwise_actions}")
 
-@main.command("publish-build")
+@main.group("publish")
+def publish():
+    ...
+
+
+@publish.command(name="build")
 def publish_build():
 
         paper_text_file = Path(download_workdir / lcc.paper_text_file_name)
@@ -276,58 +277,30 @@ def publish_build():
 
         adata = sc.read_h5ad(harmonize_metadata_workdir /
                             lcc.harmonize_metadata_adata_name)
-        is_error, tags = lint_anndata(adata)
 
         build_publish_data(
            paper_text_file.read_text(),
            paper_url_file.read_text(),
            external_id_file.read_text(),
            adata,
-           publish_workdir,
-           tags
+           publish_workdir
         )
 
-        report_map = {
-            "construct_counts": construct_counts_workdir / lcc.construct_counts_report_name,
-            "qc": qc_workdir / lcc.qc_report_name,
-            "transform": transform_workdir / lcc.transform_report_name,
-            "type_cells": type_cells_workdir / lcc.type_cells_report_name,
-            "harmonize_metadata": harmonize_metadata_workdir / lcc.harmonize_metadata_report_name,
-        }
-
-        build_publish_report(
-            publish_workdir,
-            report_map
-        )
         write_anndata(adata, publish_workdir, lcc.publish_adata_name)
 
 
-@main.command("publish-upload")
-@click.option("--latch-dest", type=str)
-def publish_upload(latch_dest: str):
-
-        publish_data = json.loads((publish_workdir /
-                                   lcc.publish_build_info_file_name).read_text())
-
-        display_name = publish_data['info']['display_name']
-        full_latch_dest = f'{latch_dest}/{display_name}'
-
-        latch_cp([str(publish_workdir.resolve())], full_latch_dest, progress=Progress.tasks, verbose=False, expand_globs=False)
-
-        res = get_node_data(full_latch_dest)
-        node_id = res.data[full_latch_dest].id
-        print(f'retrieved node id {node_id} for {full_latch_dest}')
-
-        build_publish_queries(
-            node_id,
-            Path(lcc.publish_workdir_name) / lcc.publish_build_info_file_name,
-            Path(lcc.publish_workdir_name) / "queries.sql",
-        )
+@publish.command(name="upload")
+@click.option("--latch-dest", type=str, help="Destination path in Latch Data")
+@click.option("--curator-id", type=int, help="Curator organization ID")
+@click.option("--version", type=str, help="Dataset version")
+@click.option("--curator-dataset-id", type=str, help="Curator's unique dataset identifier")
+def publish_upload(latch_dest: str = None, curator_id: int = None, version: str = None, curator_dataset_id: str = None):
+    upload_dataset(latch_dest, curator_id, version, curator_dataset_id)
 
     # upload portal
     # send email
 
-@main.command("publish-email")
+@publish.command(name="email")
 def publish_email():
 
     publish_data = json.loads((publish_workdir /

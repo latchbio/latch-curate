@@ -3,15 +3,20 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/latch_curate"] 
-# include = ["src/**/*.py", "src/latch_curate/construct/vendor/ensembl_map.json"]
+packages = ["src/latch_curate"]
+exclude = [
+  "**/.venv",
+  "**/__pycache__",
+  "**/*.pyc",
+  "**/*.pyo",
+  "**/*.h5ad",
+  "**/*.h5",
+  "**/foobar",
+]
 
-# [tool.hatch.build.targets.wheel.force-include]
-# "src/latch_curate/construct/vendor/ensembl_map.json" = "latch_curate/construct/vendor/ensembl_map.json"
+[tool.hatch.build.targets.wheel.sources]
+"src" = ""
 
-# note(kenny): Needed to force reinstall from local directory when the
-# pyproject file has not changed. 
-# https://docs.astral.sh/uv/concepts/cache/#dynamic-metadata
 [tool.uv]
 reinstall-package = ["latch_curate"]
 
@@ -40,8 +45,3 @@ dependencies = [
 
 [project.scripts]
 latch-curate = "latch_curate.main:main"
-
-# [tool.setuptools.packages.find]
-# where   = ["."]
-# include = ["latch_curate*"]
-# exclude = ["sandbox*", "workflows*"]

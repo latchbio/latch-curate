@@ -11,6 +11,8 @@ class LatchCurateConstants:
     get_adaptive_qc_thresholds_endpoint = "get-adaptive-qc-thresholds"
     get_cell_types_endpoint = "get-cell-types"
     get_harmonized_metadata_endpoint = "get-harmonized-metadata"
+    get_paper_info_endpoint = "get-paper-info"
+    get_paper_author_contact_info_endpoint = "get-paper-author-contact-info"
 
     pkg_version_cache_path: str = "latch-curate/cached-version.txt"
     openai_api_key_path: str = "latch-curate/openai_api_key.txt"
@@ -51,7 +53,7 @@ class LatchCurateConstants:
     publish_adata_name: str = "publish.h5ad"
     publish_report_name: str = "publish.html"
 
-    publish_build_info_file_name: str = "build.json"
+    publish_build_info_file_name: str = "build.yaml"
 
 
 latch_curate_constants = LatchCurateConstants()

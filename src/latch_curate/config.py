@@ -65,4 +65,16 @@ class UserConfig:
         assert schema_path.exists()
         return schema_path
 
+    @property
+    def workspace_id(self) -> str:
+        workspace_data_path = self.root / "workspace"
+        assert workspace_data_path.exists()
+        try:
+            with open(workspace_data_path) as f:
+                workspace_data = json.load(f)
+                return workspace_data['workspace_id']
+        except Exception as e:
+            print(f"Error retrieving workspace ID: {e}")
+            raise
+
 user_config = UserConfig()
