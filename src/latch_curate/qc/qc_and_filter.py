@@ -446,29 +446,48 @@ def qc_and_filter(
         print("Using existing adaptive thresholds from params file")
     else:
         print("Requesting adaptive thresholds from model")
-        resp = post(
-            f"{lcc.nucleus_url}/{lcc.get_adaptive_qc_thresholds_endpoint}",
-            {
-                "statistics": statistics,
-                "quantile_table": df_to_str(post_fixed_quantile_table),
-                "sample_list": list(set(adata.obs['latch_sample_id'])),
-                "session_id": -1
-            },
-            headers = {"Authorization": f"Latch-SDK-Token {user_config.token}"}
-        )
-        try:
-            data = resp.json()['data']['interval_data']
-            for sample_name, x in data.items():
-                interval_data[sample_name] = []
-                for v in x:
-                    assert "statistic_name" in v
-                    assert "interval" in v
-                    assert "reasoning" in v
-                    stat_data = StatisticInterval(statistic_name=v["statistic_name"], interval=v["interval"], reasoning=v["reasoning"])
-                    interval_data[sample_name].append(stat_data)
-        except Exception as e:
-            print(e.with_traceback())
-            print(f"Invalid model response: {e}. Trying again")
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                print(f"Attempt {attempt + 1}/{max_retries}")
+                resp = post(
+                    f"{lcc.nucleus_url}/{lcc.get_adaptive_qc_thresholds_endpoint}",
+                    {
+                        "statistics": statistics,
+                        "quantile_table": df_to_str(post_fixed_quantile_table),
+                        "sample_list": list(set(adata.obs['latch_sample_id'])),
+                        "session_id": -1
+                    },
+                    headers = {"Authorization": f"Latch-SDK-Token {user_config.token}"}
+                )
+                
+                json_response = resp.json()
+                data = json_response['data']['interval_data']
+                
+                for sample_name, x in data.items():
+                    interval_data[sample_name] = []
+                    for v in x:
+                        assert "statistic_name" in v
+                        assert "interval" in v
+                        assert "reasoning" in v
+                        stat_data = StatisticInterval(statistic_name=v["statistic_name"], interval=v["interval"], reasoning=v["reasoning"])
+                        interval_data[sample_name].append(stat_data)
+                
+                print("Successfully received adaptive thresholds")
+                break
+                
+            except Exception as e:
+                print(f"API response error on attempt {attempt + 1}: {e}")
+                print(f"Response status: {resp.status_code}")
+                print(f"Response content: {resp.content[:500]}")
+                
+                if attempt == max_retries - 1:
+                    print("Max retries reached. Continuing without adaptive thresholds.")
+                    interval_data = {}
+                else:
+                    print(f"Retrying in 2 seconds...")
+                    import time
+                    time.sleep(2)
 
     adaptive_mask = build_adaptive_mask(adata, interval_data)
 
