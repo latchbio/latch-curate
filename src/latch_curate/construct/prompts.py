@@ -122,8 +122,15 @@ def build_construct_counts_prompt(target_cell_count: int):
 
     * **Do not** normalise, log-transform, or filter the counts.  
     * Under **no circumstances** should the script subset, sample, or
-    downsample the raw data.  It must load every barcode and every nonzero
+    downsample the raw data. It must load every barcode and every nonzero
     count value.
+    * **CRITICAL**: You must process ALL available data files completely.
+    Do NOT use techniques like `head()`, `sample()`, `iloc[:1000]`, or any
+    other method that limits the number of rows/cells processed. Load the
+    ENTIRE dataset even if it results in a large matrix.
+    * The final cell count should match or exceed the expected count from
+    the paper. If you're significantly under the expected count, you're
+    missing data or subsampling incorrectly.
 
     After you finish writing build_anndata.py, execute it with "python build_anndata.py" and do not exit until the file output.h5ad exists.
     """)
