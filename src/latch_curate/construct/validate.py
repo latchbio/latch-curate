@@ -34,6 +34,14 @@ def validate_counts_object(adata: ad.AnnData) -> list[tuple[str, str]]:
     vals = X.data if sp.issparse(X) else np.asarray(X)
     record_and_assert(validation_log, (vals >= 0).all(), "counts non-negative")
     record_and_assert(validation_log, np.allclose(vals, vals.round()), "counts are integers")
+    
+    # Check sparsity - real scRNA-seq data should have at least some non-zero values
+    nnz = X.nnz if sp.issparse(X) else (X != 0).sum()
+    total_elements = adata.n_obs * adata.n_vars
+    sparsity = 1 - (nnz / total_elements)
+    record_and_assert(validation_log, nnz > 0, f"matrix has non-zero values (found {nnz} non-zero entries, {sparsity:.1%} sparse)")
+    # Matrix should not be all zeros
+    record_and_assert(validation_log, sparsity < 1.0, f"matrix is not all zeros (sparsity: {sparsity:.1%})")
 
     for col in adata.obs.columns:
         if col.startswith("author_"):
