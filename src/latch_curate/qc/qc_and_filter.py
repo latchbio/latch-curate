@@ -386,7 +386,7 @@ def qc_and_filter(
 
     print("Calculating qc metrics: mt‑genes, n_genes_by_counts, total_counts, pct_counts_mt")
 
-    adata.var["mt"] = adata.var["gene_symbols"].str.startswith("MT-")
+    adata.var["mt"] = adata.var["gene_symbols"].str.startswith("MT-", na=False)
     sc.pp.calculate_qc_metrics(adata, qc_vars=["mt"], percent_top=False, inplace=True)
 
     study_metadata = study_metadata_path.read_text()
@@ -460,10 +460,10 @@ def qc_and_filter(
                     },
                     headers = {"Authorization": f"Latch-SDK-Token {user_config.token}"}
                 )
-                
+
                 json_response = resp.json()
                 data = json_response['data']['interval_data']
-                
+
                 for sample_name, x in data.items():
                     interval_data[sample_name] = []
                     for v in x:
@@ -472,7 +472,7 @@ def qc_and_filter(
                         assert "reasoning" in v
                         stat_data = StatisticInterval(statistic_name=v["statistic_name"], interval=v["interval"], reasoning=v["reasoning"])
                         interval_data[sample_name].append(stat_data)
-                
+
                 print("Successfully received adaptive thresholds")
                 break
                 
@@ -485,7 +485,7 @@ def qc_and_filter(
                     print("Max retries reached. Continuing without adaptive thresholds.")
                     interval_data = {}
                 else:
-                    print(f"Retrying in 2 seconds...")
+                    print("Retrying in 2 seconds...")
                     import time
                     time.sleep(2)
 
