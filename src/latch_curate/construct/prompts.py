@@ -125,5 +125,5 @@ def build_construct_counts_prompt(target_cell_count: int):
     or create placeholder/zero matrices. Load ALL actual count values from files.
     * Process every barcode and nonzero count - no "dry runs" or structural placeholders.
 
-    After you finish writing build_anndata.py, execute it with "python build_anndata.py" and do not exit until the file output.h5ad exists.
+    After you finish writing build_anndata.py, execute it with "python build_anndata.py" using a timeout of at least 600000ms (10 minutes) to handle large data files. Do not exit until the file output.h5ad exists.
     """)
