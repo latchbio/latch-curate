@@ -54,9 +54,11 @@ def validate_cell_typing_config(config: CellTypingConfig, adata: AnnData) -> tup
     if config.cell_type_column in adata.obs.columns:
         unique_types = adata.obs[config.cell_type_column].dropna().unique()
         valid_types = {v.name for v in config.vocabulary}
-
+        valid_types_with_ontology = {f"{v.name}/{v.ontology_id}" for v in config.vocabulary}
+        
         for cell_type in unique_types:
-            if cell_type not in valid_types:
+            cell_type_name = cell_type.split('/')[0] if '/' in cell_type else cell_type
+            if cell_type not in valid_types and cell_type not in valid_types_with_ontology and cell_type_name not in valid_types:
                 errors.append(f"Cell type '{cell_type}' not in configured vocabulary")
 
     if 'gene_symbols' in adata.var.columns:
