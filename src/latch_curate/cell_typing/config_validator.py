@@ -82,7 +82,17 @@ def extract_cell_typing_tags(adata: AnnData, config: CellTypingConfig) -> list[C
     unique_types = adata.obs[config.cell_type_column].dropna().unique()
 
     for cell_type in unique_types:
-        if cell_type in vocab_map:
+        if '/' in cell_type:
+            parts = cell_type.split('/')
+            name = parts[0]
+            ontology_id = parts[1] if len(parts) > 1 else ''
+            
+            if name in vocab_map or ontology_id in [v.ontology_id for v in config.vocabulary]:
+                tags.append(CellTypingTag(
+                    cell_type=name,
+                    ontology_id=ontology_id if ontology_id else vocab_map.get(name, '')
+                ))
+        elif cell_type in vocab_map:
             tags.append(CellTypingTag(
                 cell_type=cell_type,
                 ontology_id=vocab_map[cell_type]
