@@ -17,6 +17,7 @@ class LatchCurateConstants:
     pkg_version_cache_path: str = "latch-curate/cached-version.txt"
     openai_api_key_path: str = "latch-curate/openai_api_key.txt"
     metadata_schema_path: str = "latch-curate/metadata_schema.yaml"
+    cell_typing_config_path: str = "latch-curate/cell_typing_schema.yaml"
 
     external_id_file_name: str = "external_id.txt"
     metadata_file_name: str = "study_metadata.txt"

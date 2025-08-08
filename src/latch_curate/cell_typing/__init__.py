@@ -10,13 +10,13 @@ from anndata import AnnData
 from latch_curate.cell_typing.marker_genes import marker_genes, remove_absent_symbols
 from latch_curate.cell_typing.vocab import cell_typing_vocab
 from latch_curate.config import user_config
+from latch_curate.cell_typing.config_validator import parse_cell_typing_config
 from latch_curate.utils import _fig_to_base64, write_html_report, write_anndata
 from latch_curate.tinyrequests import post
 from latch_curate.constants import latch_curate_constants as lcc
 
-cluster_key = "leiden_res_0.50"
 
-def construct_diff_exp_json(adata: AnnData, top_n: int = 20) -> dict:
+def construct_diff_exp_json(adata: AnnData, cluster_key: str, top_n: int = 20) -> dict:
     sc.tl.rank_genes_groups(adata, groupby=cluster_key, method="wilcoxon", n_genes=50)
     res = adata.uns["rank_genes_groups"]
     clusters = res["names"].dtype.names
@@ -73,6 +73,18 @@ def type_cells(
     workdir: Path,
     use_metadata: bool
 ):
+    config_path = user_config.cell_typing_config_path
+    if config_path.exists():
+        config = parse_cell_typing_config(config_path)
+        cluster_key = config.cluster_column
+        cell_type_column = config.cell_type_column
+        used_marker_genes = config.marker_genes
+        used_vocab = [f"{v.name}/{v.ontology_id}" for v in config.vocabulary]
+    else:
+        cluster_key = "leiden_res_0.50"
+        cell_type_column = "latch_cell_type_lvl_1"
+        used_marker_genes = marker_genes
+        used_vocab = cell_typing_vocab
 
     metadata_path = workdir / lcc.type_cells_metadata_name
     if use_metadata:
@@ -86,15 +98,15 @@ def type_cells(
         reasoning = f"Annotations read from {metadata_path}"
     else:
         print("starting differential expression")
-        de_json = construct_diff_exp_json(adata)
+        de_json = construct_diff_exp_json(adata, cluster_key)
 
         print("Requesting cell types from model")
         resp = post(
             f"{lcc.nucleus_url}/{lcc.get_cell_types_endpoint}",
             {
-                "marker_genes": json.dumps(marker_genes),
+                "marker_genes": json.dumps(used_marker_genes),
                 "de_json": json.dumps(de_json),
-                "cell_typing_vocab": json.dumps(cell_typing_vocab),
+                "cell_typing_vocab": json.dumps(used_vocab),
                 "metadata": json.dumps({"step": "type-cells", "project":
                                         workdir.resolve().parent.name}),
                 "session_id": -1
@@ -109,10 +121,10 @@ def type_cells(
             raise ValueError(f'Malformed response data: {resp.json()}')
 
     print("mapping annotations onto AnnData")
-    adata.obs["latch_cell_type_lvl_1"] = adata.obs[cluster_key].astype(str).map(annotations)
+    adata.obs[cell_type_column] = adata.obs[cluster_key].astype(str).map(annotations)
 
     print("creating marker dotplot")
-    filtered_markers = remove_absent_symbols(adata, marker_genes)
+    filtered_markers = remove_absent_symbols(adata, used_marker_genes)
     dp = sc.pl.dotplot(
         adata,
         filtered_markers,
@@ -127,7 +139,7 @@ def type_cells(
     print("creating UMAP coloured by cell-type annotations")
     umap_cell_type_fig = sc.pl.umap(
         adata,
-        color="latch_cell_type_lvl_1",
+        color=cell_type_column,
         size=2,
         legend_loc="on data",
         show=False,

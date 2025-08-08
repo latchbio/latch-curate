@@ -66,6 +66,11 @@ class UserConfig:
         return schema_path
 
     @property
+    def cell_typing_config_path(self) -> Path:
+        config_path = self.root / latch_curate_constants.cell_typing_config_path
+        return config_path
+
+    @property
     def workspace_id(self) -> str:
         workspace_data_path = self.root / "workspace"
         assert workspace_data_path.exists()

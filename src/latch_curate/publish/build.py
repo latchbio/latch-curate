@@ -10,6 +10,11 @@ from latch_curate.utils import write_html_report
 from latch_curate.constants import latch_curate_constants as lcc
 from latch_curate.config import user_config
 from latch_curate.lint.metadata_validator import validate_harmonized_metadata
+from latch_curate.cell_typing.config_validator import (
+    parse_cell_typing_config, 
+    validate_cell_typing_config,
+    extract_cell_typing_tags
+)
 
 
 def build_publish_data(paper_text: str, paper_url: str, gse_id: str, adata: AnnData, workdir: Path):
@@ -47,8 +52,11 @@ def build_publish_data(paper_text: str, paper_url: str, gse_id: str, adata: AnnD
     corresponding_author_emails = author_info_data["corresponding_author_emails"]
 
     tags = []
-    validation_status = "not_validated"
+    cell_typing_tags = []
+    metadata_validation_status = "not_validated"
+    cell_typing_validation_status = "not_validated"
     schema_path = user_config.metadata_schema_path
+    cell_typing_config_path = user_config.cell_typing_config_path
 
     if schema_path.exists():
         print(f"Using metadata schema at: {schema_path}")
@@ -57,19 +65,57 @@ def build_publish_data(paper_text: str, paper_url: str, gse_id: str, adata: AnnD
         try:
             validation_result = validate_harmonized_metadata(adata, schema_path)
             tags = validation_result.tags
-            validation_status = "passed" if validation_result.is_valid else "failed"
+            metadata_validation_status = "passed" if validation_result.is_valid else "failed"
 
             if not validation_result.is_valid:
                 print(f"Metadata validation failed with {len(validation_result.errors)} errors")
         except Exception as e:
             print(f"Error during metadata validation: {e}")
-            validation_status = "error"
+            metadata_validation_status = "error"
     else:
         print(f"No metadata schema found at: {schema_path}")
         print("Skipping validation - ensure schema file exists before running publish")
 
+    if cell_typing_config_path.exists():
+        print(f"Using cell typing config at: {cell_typing_config_path}")
+        print("Validating and extracting cell typing tags...")
+
+        try:
+            cell_typing_config = parse_cell_typing_config(cell_typing_config_path)
+            is_valid, errors = validate_cell_typing_config(cell_typing_config, adata)
+
+            if is_valid:
+                cell_typing_tags = extract_cell_typing_tags(adata, cell_typing_config)
+                cell_typing_validation_status = "passed"
+                print(f"Extracted {len(cell_typing_tags)} cell typing tags")
+            else:
+                cell_typing_validation_status = "failed"
+                print(f"Cell typing validation failed: {errors}")
+        except Exception as e:
+            print(f"Error processing cell typing config: {e}")
+            cell_typing_validation_status = "error"
+    else:
+        print(f"No cell typing config found at: {cell_typing_config_path}")
+        print("Skipping cell typing tag extraction")
+
     build_info_file = workdir / lcc.publish_build_info_file_name
     with open(build_info_file, "w") as f:
+        all_tags = []
+
+        for t in tags:
+            all_tags.append({
+                "metadata_type": t.metadata_type, 
+                "value": t.name,
+                "ontology_id": t.obo_id
+            })
+
+        for ct in cell_typing_tags:
+            all_tags.append({
+                "metadata_type": "cell_type",
+                "value": ct.cell_type,
+                "ontology_id": ct.ontology_id
+            })
+
         data = {
                 "info": {
                     "description": paper_abstract,
@@ -82,16 +128,18 @@ def build_publish_data(paper_text: str, paper_url: str, gse_id: str, adata: AnnD
                     "corresponding_author_emails": corresponding_author_emails,
                 },
         "validation": {
-            "status": validation_status,
-            "schema_used": str(schema_path) if schema_path else None,
-            "tags_extracted": len(tags),
+            "metadata_validation_status": metadata_validation_status,
+            "metadata_schema_used": str(schema_path) if schema_path.exists() else None,
+            "metadata_tags_extracted": len(tags),
+            "cell_typing_validation_status": cell_typing_validation_status,
+            "cell_typing_config_used": str(cell_typing_config_path) if cell_typing_config_path.exists() else None,
+            "cell_typing_tags_extracted": len(cell_typing_tags),
         },
-        "tags": [{"metadata_type": t.metadata_type, "value": t.name,
-                  "ontology_id": t.obo_id} for t in tags],
+        "tags": all_tags,
         }
         yaml.safe_dump(data, f, default_flow_style=False, indent=2)
         print(f"Publish build data written to {build_info_file}")
-        
+
     print("\nBuild complete! Please verify the following information:")
     print("=" * 60)
     print(f"Paper Title: {paper_title}")
@@ -99,14 +147,16 @@ def build_publish_data(paper_text: str, paper_url: str, gse_id: str, adata: AnnD
     print(f"Cell Count: {adata.n_obs:,}")
     print(f"Authors: {', '.join(corresponding_author_names)}")
     print(f"Email Contacts: {', '.join(corresponding_author_emails)}")
-    print(f"Validation Status: {validation_status}")
-    print(f"Tags Extracted: {len(tags)}")
-    if tags:
-        print("Tags:")
-        for tag in tags[:5]:
-            print(f"  - {tag.metadata_type}: {tag.name}")
-        if len(tags) > 5:
-            print(f"  ... and {len(tags) - 5} more")
+    print(f"Metadata Validation Status: {metadata_validation_status}")
+    print(f"Metadata Tags Extracted: {len(tags)}")
+    print(f"Cell Typing Validation Status: {cell_typing_validation_status}")
+    print(f"Cell Typing Tags Extracted: {len(cell_typing_tags)}")
+    if all_tags:
+        print("All Tags:")
+        for tag in all_tags[:5]:
+            print(f"  - {tag['metadata_type']}: {tag['value']}")
+        if len(all_tags) > 5:
+            print(f"  ... and {len(all_tags) - 5} more")
     print("=" * 60)
     print(f"Build file: {build_info_file}")
     print("Next step: latch-curate publish upload")
