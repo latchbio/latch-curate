@@ -20,8 +20,10 @@ from latch_curate.llm_utils import prompt_model
 from latch_curate.construct.prompts import build_construct_counts_prompt, build_construct_counts_instructions, add_or_replace_validation_failure, build_chat_prompt
 from latch_curate.config import user_config
 
+model = "gpt-5-mini"
+
 codex_config = {
-  "model": "o4-mini",
+  "model": model,
   "provider": "openai",
   "providers": {
     "openai": {
@@ -225,7 +227,6 @@ def construct_counts(
     study_metadata_path: Path,
     workdir: Path,
     #
-    model: str = "o4-mini",
     max_rounds: int = 5,
 ) -> Path:
     workdir.mkdir(exist_ok=True)
