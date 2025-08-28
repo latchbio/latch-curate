@@ -31,9 +31,9 @@ def _req(
     retries = 3
     while True:
         if port == 443:
-            conn = HTTPSConnection(parts.hostname, port, timeout=90)
+            conn = HTTPSConnection(parts.hostname, port, timeout=300)
         else:
-            conn = HTTPConnection(parts.hostname, port, timeout=90)
+            conn = HTTPConnection(parts.hostname, port, timeout=300)
 
         try:
             conn.request(
