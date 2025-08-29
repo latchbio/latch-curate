@@ -19,6 +19,7 @@ from latch_curate.utils import _df_to_html, write_html_report
 from latch_curate.llm_utils import prompt_model
 from latch_curate.construct.prompts import build_construct_counts_prompt, build_construct_counts_instructions, add_or_replace_validation_failure, build_chat_prompt
 from latch_curate.config import user_config
+from latch_curate.memory_utils import get_memory_limit
 
 model = "gpt-5-mini"
 
@@ -57,11 +58,6 @@ def client_from_env():
         "\nEither start Docker or set DOCKER_HOST explicitly."
     )
 
-def get_system_memory() -> int:
-    pages = os.sysconf('SC_PHYS_PAGES')
-    page_size = os.sysconf('SC_PAGE_SIZE')
-    total_bytes = pages * page_size
-    return total_bytes
 
 def build_construct_report_html(
         adata: AnnData,
@@ -282,9 +278,9 @@ def construct_counts(
         print(f"\n=== Agentic count matrix construction attempt {attempt}/{max_rounds} ===")
 
         client = client_from_env()
-        system_memory_bytes = get_system_memory()
-        docker_mem_limit = int(system_memory_bytes * 0.8) // (1024 ** 3)
-        print(f"{system_memory_bytes} bytes of system memory. Setting agent limit to {docker_mem_limit} GB.")
+        memory_limit_bytes = get_memory_limit()
+        docker_mem_limit = int(memory_limit_bytes * 0.8) // (1024 ** 3)
+        print(f"{memory_limit_bytes} bytes detected memory limit. Setting agent limit to {docker_mem_limit} GB.")
         log_path = workdir / f".agent.{attempt}.log"
         with log_path.open("w") as log_f:
             codex_cmd = (
