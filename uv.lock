@@ -1368,6 +1368,7 @@ dependencies = [
     { name = "pysradb" },
     { name = "scanpy" },
     { name = "scikit-image" },
+    { name = "setuptools" },
     { name = "tiktoken" },
 ]
 
@@ -1383,6 +1384,7 @@ requires-dist = [
     { name = "pysradb", specifier = "==2.2.2" },
     { name = "scanpy", specifier = "==1.11.1" },
     { name = "scikit-image", specifier = "==0.25.2" },
+    { name = "setuptools", specifier = "<81" },
     { name = "tiktoken", specifier = ">=0.9.0" },
 ]
 

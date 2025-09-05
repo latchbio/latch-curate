@@ -44,7 +44,7 @@ def _req(
             )
             resp = conn.getresponse()
             break
-        except ConnectionError as e:
+        except (ConnectionError, TimeoutError, OSError) as e:
             retries += 1
             if retries > 3:
                 raise e
@@ -137,7 +137,7 @@ def request(
             )
             if res.status_code < 500:
                 return res
-        except ConnectionError as e:
+        except (ConnectionError, TimeoutError, OSError) as e:
             err = e
 
         if attempt < num_retries:
