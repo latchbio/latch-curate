@@ -155,14 +155,16 @@ def construct_counts():
 
 
 @construct_counts.command(name="run")
-def construct_counts_run():
+@click.option("--input-h5ad", type=click.Path(exists=True, path_type=Path), default=None)
+def construct_counts_run(input_h5ad: Path | None):
     supp_data_dir, paper_text_file, metadata_file = check_download_files_exist()
     print("[construct-counts/run] Starting count matrix construction")
     _construct_counts(
         supp_data_dir,
         paper_text_file,
         metadata_file,
-        construct_counts_workdir
+        construct_counts_workdir,
+        input_h5ad=input_h5ad
     )
     assert (construct_counts_workdir / lcc.construct_counts_adata_name).exists()
 
@@ -221,10 +223,14 @@ def transform(action: list[StepwiseAction]):
 @main.command("type-cells")
 @click.argument("action", type=click.Choice(stepwise_actions))
 @click.option("--use-metadata", is_flag=True, default=False)
-def type_cells(action: list[StepwiseAction], use_metadata: bool):
+@click.option("--adata-path", type=click.Path(exists=True, path_type=Path), default=None)
+def type_cells(action: list[StepwiseAction], use_metadata: bool, adata_path: Path | None):
 
     if action == "run":
-        anndata_file = find_workdir_anndata(transform_workdir, lcc.transform_adata_name)
+        if adata_path is not None:
+            anndata_file = adata_path
+        else:
+            anndata_file = find_workdir_anndata(transform_workdir, lcc.transform_adata_name)
 
         print("[type-cells/run] Reading AnnData")
         adata = sc.read_h5ad(anndata_file)

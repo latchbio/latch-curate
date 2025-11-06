@@ -60,7 +60,38 @@ def add_or_replace_validation_failure(prompt: str, validation_failure: str):
          )
     return f"{prompt}\n\n{tagged_failure}"
 
-def build_construct_counts_prompt(target_cell_count: int):
+def build_construct_counts_prompt(target_cell_count: int, has_input_h5ad: bool = False):
+
+    h5ad_section = ""
+    if has_input_h5ad:
+        h5ad_section = dedent("""
+
+    ## INPUT H5AD FILE
+
+    An existing AnnData file is available at `data/input.h5ad`. Your task is to **transform** this file to meet all validation requirements below.
+
+    The input h5ad may have:
+    - Gene symbols instead of Ensembl IDs in the var index
+    - Different metadata column naming conventions
+    - Non-standard sample ID columns
+    - Already processed/transformed counts (verify they are raw)
+
+    Your task:
+    1. Load `data/input.h5ad`
+    2. Map gene symbols/IDs to Ensembl IDs if needed (use `ensembl_map.json`)
+    3. Create `obs['latch_sample_id']` from existing sample metadata (infer from obs columns)
+    4. Ensure `var['gene_symbols']` exists with unique symbols
+    5. Prefix any author metadata columns with `author_`
+    6. Verify counts are raw (non-negative integers, not log-transformed)
+    7. Write the standardized object to `output.h5ad`
+
+    Use information from <paper_text> and <study_metadata> to help infer:
+    - Which obs column should become `latch_sample_id`
+    - What the samples represent (patients, conditions, etc.)
+    - Whether counts appear raw or need any attention
+
+    ---
+    """)
 
     return dedent(f"""
     ## CONTEXT
@@ -68,10 +99,10 @@ def build_construct_counts_prompt(target_cell_count: int):
     You are operating inside a clean working directory that already contains:
 
     * **Raw data folder**: `data`
-    * **Utility library**: `scrna_utils.py`  
+    * **Utility library**: `scrna_utils.py`
 
     ---
-
+{h5ad_section}
     ## GOAL
 
     Write a single **driver script** called `build_anndata.py` that:

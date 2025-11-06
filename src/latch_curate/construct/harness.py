@@ -21,7 +21,7 @@ from latch_curate.construct.prompts import build_construct_counts_prompt, build_
 from latch_curate.config import user_config
 from latch_curate.memory_utils import get_memory_limit
 
-model = "gpt-5-mini"
+model = "gpt-5-codex"
 
 codex_config = {
   "model": model,
@@ -222,7 +222,7 @@ def construct_counts(
     paper_text_path: Path,
     study_metadata_path: Path,
     workdir: Path,
-    #
+    input_h5ad: Path | None = None,
     max_rounds: int = 5,
 ) -> Path:
     workdir.mkdir(exist_ok=True)
@@ -230,6 +230,10 @@ def construct_counts(
     for fname in ("scrna_utils.py", "ensembl_map.json"):
         src = Path(__file__).parent / "vendor" / fname
         shutil.copy(src, workdir / src.name)
+
+    if input_h5ad is not None:
+        print(f"[construct-counts] Copying input h5ad to data directory: {input_h5ad}")
+        shutil.copy(input_h5ad, data_dir / "input.h5ad")
 
     instructions_path = workdir / "instructions.md"
     config_path = workdir / "config.json"
@@ -256,7 +260,7 @@ def construct_counts(
     except KeyError:
         raise ValueError(f'Malformed response data :{data}')
 
-    construct_counts_prompt = build_construct_counts_prompt(target_cell_count)
+    construct_counts_prompt = build_construct_counts_prompt(target_cell_count, input_h5ad is not None)
     instructions = build_construct_counts_instructions(paper_text, study_metadata)
 
     total_size = len(instructions) + len(construct_counts_prompt) + OPENAI_SYSTEM_PROMPT_LEN
