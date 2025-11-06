@@ -239,10 +239,14 @@ def type_cells(action: list[StepwiseAction], use_metadata: bool):
 @main.command("harmonize-metadata")
 @click.argument("action", type=click.Choice(stepwise_actions))
 @click.option("--use-metadata", is_flag=True, default=False)
-def harmonize_metadata(action: list[StepwiseAction], use_metadata: bool):
+@click.option("--adata-path", type=click.Path(exists=True, path_type=Path), default=None)
+def harmonize_metadata(action: list[StepwiseAction], use_metadata: bool, adata_path: Path | None):
 
     if action == "run":
-        anndata_file = find_workdir_anndata(type_cells_workdir, lcc.type_cells_adata_name)
+        if adata_path is not None:
+            anndata_file = adata_path
+        else:
+            anndata_file = find_workdir_anndata(type_cells_workdir, lcc.type_cells_adata_name)
 
         metadata_file = download_workdir / lcc.metadata_file_name
         paper_text_file = download_workdir / lcc.paper_text_file_name
