@@ -4,6 +4,10 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/latch_curate"]
+include = [
+  "**/*.py",
+  "**/*.json",
+]
 exclude = [
   "**/.venv",
   "**/__pycache__",
