@@ -32,7 +32,7 @@ def upload_dataset(
     print("Dataset Upload")
     print(f"Paper Title: {publish_data['info']['paper_title']}")
     print(f"Cell Count: {publish_data['info']['cell_count']:,}")
-    print(f"Validation Status: {publish_data['validation']['status']}")
+    print(f"Validation Status: {publish_data['validation']['metadata_validation_status']}")
     print(f"Tags: {len(publish_data['tags'])} extracted")
 
     if latch_dest is None:

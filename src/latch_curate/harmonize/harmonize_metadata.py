@@ -82,10 +82,13 @@ def harmonize_metadata(
         with cache_path.open() as f:
             annotation_dict = yaml.safe_load(f)
     else:
+        schema_path = user_config.root / lcc.metadata_schema_path
+        if not schema_path.exists():
+            raise ValueError(f"Metadata schema file not found: {schema_path}")
         try:
-            var_defs = parse_metadata_yaml(user_config.metadata_schema_path)
+            var_defs = parse_metadata_yaml(schema_path)
         except Exception:
-            raise ValueError('Malformed variable schema file.')
+            raise ValueError(f"Malformed variable schema file: {schema_path}")
 
         study_metadata = metadata_file.read_text()
         paper_text = paper_text_file.read_text()
