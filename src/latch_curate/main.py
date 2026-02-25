@@ -181,7 +181,8 @@ def construct_counts_chat():
 @main.command("qc")
 @click.argument("action", type=click.Choice(stepwise_actions))
 @click.option("--use-params", is_flag=True, default=False)
-def qc(action: list[StepwiseAction], use_params: bool):
+@click.option("--skip-adaptive", is_flag=True, default=False)
+def qc(action: list[StepwiseAction], use_params: bool, skip_adaptive: bool):
 
     if action == "run":
         anndata_file = find_workdir_anndata(construct_counts_workdir,
@@ -195,7 +196,7 @@ def qc(action: list[StepwiseAction], use_params: bool):
             assert n.exists(), f"{n.name} does not exist"
 
         print("[qc/run] Starting count matrix construction")
-        qc_and_filter(adata, paper_text_file, metadata_file, qc_workdir, use_params)
+        qc_and_filter(adata, paper_text_file, metadata_file, qc_workdir, use_params, skip_adaptive)
 
     elif action == "validate":
         assert (qc_workdir / lcc.qc_adata_name).exists()

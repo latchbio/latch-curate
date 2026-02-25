@@ -129,6 +129,9 @@ def build_adaptive_mask(
     interval_data: dict[str, list[StatisticInterval]],
 ) -> pd.Series:
 
+    if not interval_data:
+        return pd.Series(True, index=adata.obs.index, dtype=bool)
+
     global_mask = pd.Series(False, index=adata.obs.index, dtype=bool)
 
     for sample_id, stat_list in interval_data.items():
@@ -371,7 +374,8 @@ def qc_and_filter(
     study_metadata_path: Path,
     paper_text_path: Path,
     workdir: Path,
-    use_params: bool
+    use_params: bool,
+    skip_adaptive: bool = False,
 ):
     params_path = workdir / lcc.qc_params_name
     if use_params:
@@ -398,6 +402,8 @@ def qc_and_filter(
         min_genes = fixed['min_genes']
         max_counts = fixed['max_counts']
         max_pct_mt = fixed['max_pct_mt']
+        if params.get('adaptive') is None:
+            skip_adaptive = True
         print("Using existing fixed thresholds from params file.")
     else:
         print("Requesting fixed thresholds from model")
@@ -437,64 +443,69 @@ def qc_and_filter(
 
     stages.append(_stage_snapshot("After fixed thresholds", adata, fixed_thresholds=fixed_threshold_dict))
 
-    print("Applying adaptive thresholds")
+    interval_data: dict[str, list[StatisticInterval]] | None = None
 
-    interval_data: dict[str, list[StatisticInterval]] = {}
+    if not skip_adaptive:
+        print("Applying adaptive thresholds")
 
-    if use_params:
-        interval_data = params['adaptive']
-        print("Using existing adaptive thresholds from params file")
+        interval_data = {}
+
+        if use_params:
+            interval_data = params['adaptive']
+            print("Using existing adaptive thresholds from params file")
+        else:
+            print("Requesting adaptive thresholds from model")
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    print(f"Attempt {attempt + 1}/{max_retries}")
+                    resp = post(
+                        f"{lcc.nucleus_url}/{lcc.get_adaptive_qc_thresholds_endpoint}",
+                        {
+                            "statistics": statistics,
+                            "quantile_table": df_to_str(post_fixed_quantile_table),
+                            "sample_list": list(set(adata.obs['latch_sample_id'])),
+                            "session_id": -1
+                        },
+                        headers = {"Authorization": f"Latch-SDK-Token {user_config.token}"}
+                    )
+
+                    json_response = resp.json()
+                    data = json_response['data']['interval_data']
+
+                    for sample_name, x in data.items():
+                        interval_data[sample_name] = []
+                        for v in x:
+                            assert "statistic_name" in v
+                            assert "interval" in v
+                            assert "reasoning" in v
+                            stat_data = StatisticInterval(statistic_name=v["statistic_name"], interval=v["interval"], reasoning=v["reasoning"])
+                            interval_data[sample_name].append(stat_data)
+
+                    print("Successfully received adaptive thresholds")
+                    break
+
+                except Exception as e:
+                    print(f"API response error on attempt {attempt + 1}: {e}")
+                    print(f"Response status: {resp.status_code}")
+                    print(f"Response content: {resp.content[:500]}")
+
+                    if attempt == max_retries - 1:
+                        print("Max retries reached. Continuing without adaptive thresholds.")
+                        interval_data = {}
+                    else:
+                        print("Retrying in 2 seconds...")
+                        import time
+                        time.sleep(2)
+
+        adaptive_mask = build_adaptive_mask(adata, interval_data)
+
+        print(f"Adaptive filter retains {adaptive_mask.sum()} / {adaptive_mask.size} cells")
+        adata = adata[adaptive_mask, :]
+
+        stages.append(_stage_snapshot("After adaptive thresholds", adata, intervals=interval_data))
     else:
-        print("Requesting adaptive thresholds from model")
-        max_retries = 3
-        for attempt in range(max_retries):
-            try:
-                print(f"Attempt {attempt + 1}/{max_retries}")
-                resp = post(
-                    f"{lcc.nucleus_url}/{lcc.get_adaptive_qc_thresholds_endpoint}",
-                    {
-                        "statistics": statistics,
-                        "quantile_table": df_to_str(post_fixed_quantile_table),
-                        "sample_list": list(set(adata.obs['latch_sample_id'])),
-                        "session_id": -1
-                    },
-                    headers = {"Authorization": f"Latch-SDK-Token {user_config.token}"}
-                )
-
-                json_response = resp.json()
-                data = json_response['data']['interval_data']
-
-                for sample_name, x in data.items():
-                    interval_data[sample_name] = []
-                    for v in x:
-                        assert "statistic_name" in v
-                        assert "interval" in v
-                        assert "reasoning" in v
-                        stat_data = StatisticInterval(statistic_name=v["statistic_name"], interval=v["interval"], reasoning=v["reasoning"])
-                        interval_data[sample_name].append(stat_data)
-
-                print("Successfully received adaptive thresholds")
-                break
-                
-            except Exception as e:
-                print(f"API response error on attempt {attempt + 1}: {e}")
-                print(f"Response status: {resp.status_code}")
-                print(f"Response content: {resp.content[:500]}")
-                
-                if attempt == max_retries - 1:
-                    print("Max retries reached. Continuing without adaptive thresholds.")
-                    interval_data = {}
-                else:
-                    print("Retrying in 2 seconds...")
-                    import time
-                    time.sleep(2)
-
-    adaptive_mask = build_adaptive_mask(adata, interval_data)
-
-    print(f"Adaptive filter retains {adaptive_mask.sum()} / {adaptive_mask.size} cells")
-    adata = adata[adaptive_mask, :]
-
-    stages.append(_stage_snapshot("After adaptive thresholds", adata, intervals=interval_data))
+        print("Skipping adaptive thresholds")
 
     write_anndata(adata, workdir, lcc.qc_adata_name)
 
@@ -504,7 +515,7 @@ def qc_and_filter(
     if not use_params:
         param_data = {
                 "fixed": {"min_genes": min_genes, "max_counts": max_counts, "max_pct_mt": max_pct_mt},
-                "adaptive": interval_data
+                "adaptive": interval_data,
         }
         with open(params_path, "w") as f:
             yaml.safe_dump(param_data, f, default_flow_style=False, indent=2)
